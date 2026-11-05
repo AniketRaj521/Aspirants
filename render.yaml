@@ -1,0 +1,49 @@
+services:
+  # ============================================================
+  # ASPIRANTS AI - BACKEND (FastAPI / Python Web Service)
+  # ============================================================
+  - type: web
+    name: aspirants-backend
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: aspirants-frontend
+          property: host
+
+  # ============================================================
+  # ASPIRANTS AI - FRONTEND (Vite / React SPA Static Site)
+  # ============================================================
+  - type: web
+    name: aspirants-frontend
+    runtime: static
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: aspirants-backend
+          property: host

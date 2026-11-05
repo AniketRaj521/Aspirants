@@ -69,21 +69,26 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 # CORS CONFIGURATION
 # ============================================================
 
+cors_origins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://localhost:5176",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5175",
+    "http://127.0.0.1:5176",
+    "http://127.0.0.1:3000",
+]
+frontend_url_env = os.getenv("FRONTEND_URL")
+if frontend_url_env:
+    cors_origins.extend([u.strip() for u in frontend_url_env.split(",") if u.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://localhost:5176",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:5175",
-        "http://127.0.0.1:5176",
-        "http://127.0.0.1:3000",
-    ],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origins=cors_origins,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|.*\.onrender\.com)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -2963,6 +2968,40 @@ async def api_generate_career_action_plan(payload: RoleActionPlanRequest):
         return {"status": "success", "data": plan}
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+# ============================================================
+# OPTIONAL FULLSTACK STATIC FRONTEND SERVING
+# ============================================================
+
+FRONTEND_DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "dist")
+
+if os.path.exists(FRONTEND_DIST):
+    assets_dir = os.path.join(FRONTEND_DIST, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend_assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa_frontend(full_path: str):
+        # Exclude API endpoints, static uploads, docs
+        if (
+            full_path.startswith("api/")
+            or full_path.startswith("uploads/")
+            or full_path.startswith("docs")
+            or full_path.startswith("openapi.json")
+            or full_path in ["health", "login", "register", "verify-otp", "resend-otp"]
+        ):
+            return JSONResponse(status_code=404, content={"message": "API endpoint not found"})
+
+        target_file = os.path.join(FRONTEND_DIST, full_path)
+        if full_path and os.path.isfile(target_file):
+            return FileResponse(target_file)
+
+        index_file = os.path.join(FRONTEND_DIST, "index.html")
+        if os.path.isfile(index_file):
+            return FileResponse(index_file)
+
+        return JSONResponse(status_code=404, content={"message": "Frontend not found"})
 
 
 if __name__ == "__main__":

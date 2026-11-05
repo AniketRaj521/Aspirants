@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { isAuthenticated } from "../../services/authStore";
+import { API_BASE_URL } from "../../services/api";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -90,7 +91,7 @@ export default function Signup() {
     try {
       console.log("Sending registration request...");
 
-      const response = await fetch("http://127.0.0.1:8000/register", {
+      const response = await fetch(`${API_BASE_URL}/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

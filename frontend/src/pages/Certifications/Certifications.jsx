@@ -419,7 +419,7 @@ export default function Certifications() {
     ) {
       return path;
     }
-    return `http://127.0.0.1:8000${path.startsWith("/") ? "" : "/"}${path}`;
+    return `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
   };
 
   // ============================================================

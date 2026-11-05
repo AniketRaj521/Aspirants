@@ -6,7 +6,8 @@
 
 const STORAGE_KEY = "statwise_student_real_db_v1";
 const EVENT_NAME = "statwise-student-updated";
-const API_BASE = "http://127.0.0.1:8000";
+const rawApi = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+const API_BASE = rawApi.startsWith("http://") || rawApi.startsWith("https://") ? rawApi : `https://${rawApi}`;
 
 // ============================================================
 // PRECISE SEMANTIC SKILL MATCHING (CRITICAL: PREVENT JAVA/JAVASCRIPT CLASH)

@@ -20,7 +20,8 @@ python -m uvicorn main:app --reload
 // API BASE URL
 // =======================================================
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const rawApiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+export const API_BASE_URL = rawApiUrl.startsWith("http://") || rawApiUrl.startsWith("https://") ? rawApiUrl : `https://${rawApiUrl}`;
 
 
 // =======================================================
@@ -662,7 +663,7 @@ export const generatePPT = async ({
   formData.append("style", style);
 
   const response = await fetch(
-    "http://127.0.0.1:8000/generate-ppt",
+    `${API_BASE_URL}/generate-ppt`,
     {
       method: "POST",
       body: formData,
@@ -706,7 +707,7 @@ export const analyzeDigitalTwin = async (file) => {
   formData.append("file", file);
 
   const response = await axios.post(
-    "http://127.0.0.1:8000/digital-twin/analyze",
+    `${API_BASE_URL}/digital-twin/analyze`,
     formData,
     {
       headers: {
