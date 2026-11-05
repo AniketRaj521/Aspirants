@@ -21,6 +21,14 @@ export default function GoogleLogin({ mode = "signin" }) {
         id: "google-login",
       });
 
+      if (!auth) {
+        toast.error("Google authentication is currently unavailable.", {
+          id: "google-login",
+        });
+        setLoading(false);
+        return;
+      }
+
       const provider = new GoogleAuthProvider();
 
       provider.setCustomParameters({
