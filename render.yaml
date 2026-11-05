@@ -27,12 +27,12 @@ services:
 
   # ============================================================
   # ASPIRANTS AI - FRONTEND (Vite / React SPA Static Site)
+  # Note: Static sites on Render are deployed to global CDN
+  #       so they do not have a region or plan attribute.
   # ============================================================
   - type: web
     name: aspirants-frontend
     runtime: static
-    plan: free
-    region: oregon
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
