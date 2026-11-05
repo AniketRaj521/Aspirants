@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { useAuth, logoutUser } from "../services/authStore";
 
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -26,9 +28,19 @@ import {
   GraduationCap,
   GitCompare,
   Briefcase,
+  LogOut,
+  User,
 } from "lucide-react";
 
 function Navbar({ dashboard = false }) {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+
+  const handleLogout = async () => {
+    await logoutUser();
+    toast.success("Logged out successfully");
+    navigate("/login");
+  };
   const [mobileOpen, setMobileOpen] = useState(false);
   const [exploreOpen, setExploreOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -713,28 +725,58 @@ function Navbar({ dashboard = false }) {
                 <Search size={19} />
               </motion.button>
 
-              {/* LOGIN */}
+              {!isAuthenticated ? (
+                <>
+                  {/* LOGIN */}
+                  <Link
+                    to="/login"
+                    className="whitespace-nowrap rounded-xl px-3.5 py-2 text-[13px] font-bold text-[#172033] transition-all duration-300 hover:bg-[#FFE9A6]"
+                  >
+                    Login
+                  </Link>
 
-              <Link
-                to="/login"
-                className="whitespace-nowrap rounded-xl px-3.5 py-2 text-[13px] font-bold text-[#172033] transition-all duration-300 hover:bg-[#FFE9A6]"
-              >
-                Login
-              </Link>
+                  {/* START LEARNING */}
+                  <Link
+                    to="/signup"
+                    className="group flex whitespace-nowrap items-center gap-2 rounded-xl bg-[#172033] px-4 py-2.5 text-[13px] font-bold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#263653] hover:shadow-xl"
+                  >
+                    Start Learning
+                    <ArrowRight
+                      size={15}
+                      className="transition-transform duration-300 group-hover:translate-x-1"
+                    />
+                  </Link>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 ml-1">
+                  {/* USER PILL */}
+                  <Link
+                    to="/profile"
+                    className="flex items-center gap-2 rounded-xl bg-[#FFE9A6] border border-[#E1C75B] px-3 py-1.5 text-xs font-bold text-[#172033] shadow-sm hover:bg-white transition-all duration-200"
+                    title="View Profile"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#172033] text-[11px] font-black text-[#F6D76A]">
+                      {(user?.name || "S").charAt(0).toUpperCase()}
+                    </div>
+                    <span className="max-w-[110px] truncate">
+                      {user?.name || "Student"}
+                    </span>
+                  </Link>
 
-              {/* START LEARNING */}
-
-              <Link
-                to="/signup"
-                className="group flex whitespace-nowrap items-center gap-2 rounded-xl bg-[#172033] px-4 py-2.5 text-[13px] font-bold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#263653] hover:shadow-xl"
-              >
-                Start Learning
-
-                <ArrowRight
-                  size={15}
-                  className="transition-transform duration-300 group-hover:translate-x-1"
-                />
-              </Link>
+                  {/* LOGOUT BUTTON */}
+                  <button
+                    onClick={handleLogout}
+                    className="group flex whitespace-nowrap items-center gap-2 rounded-xl bg-[#172033] px-3.5 py-2 text-[12.5px] font-bold text-white shadow-md transition-all duration-200 hover:bg-[#b91c1c] active:scale-95 cursor-pointer"
+                    title="Logout"
+                  >
+                    <LogOut
+                      size={15}
+                      className="text-[#F6D76A] transition-transform duration-200 group-hover:-translate-x-0.5 group-hover:text-white"
+                    />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* ==================================================
@@ -1123,22 +1165,53 @@ function Navbar({ dashboard = false }) {
 
                   {/* MOBILE AUTH */}
 
-                  <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#DFC35A] pt-3">
-                    <Link
-                      to="/login"
-                      onClick={closeMobileMenu}
-                      className="rounded-xl border-2 border-[#172033] px-4 py-3 text-center text-sm font-bold text-[#172033] transition hover:bg-[#FFE9A6]"
-                    >
-                      Login
-                    </Link>
+                  <div className="mt-2 border-t border-[#DFC35A] pt-3">
+                    {!isAuthenticated ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <Link
+                          to="/login"
+                          onClick={closeMobileMenu}
+                          className="rounded-xl border-2 border-[#172033] px-4 py-3 text-center text-sm font-bold text-[#172033] transition hover:bg-[#FFE9A6]"
+                        >
+                          Login
+                        </Link>
 
-                    <Link
-                      to="/signup"
-                      onClick={closeMobileMenu}
-                      className="rounded-xl bg-[#172033] px-4 py-3 text-center text-sm font-bold text-white shadow-md transition hover:bg-[#263653]"
-                    >
-                      Start Learning
-                    </Link>
+                        <Link
+                          to="/signup"
+                          onClick={closeMobileMenu}
+                          className="rounded-xl bg-[#172033] px-4 py-3 text-center text-sm font-bold text-white shadow-md transition hover:bg-[#263653]"
+                        >
+                          Start Learning
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3 rounded-xl bg-[#FFF8D9] p-3 border border-[#E1C75B]">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#172033] text-sm font-black text-[#F6D76A]">
+                            {(user?.name || "S").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-[#172033] truncate">
+                              {user?.name || "Student"}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {user?.email || "student@aspirants.ai"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            closeMobileMenu();
+                            handleLogout();
+                          }}
+                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#172033] px-4 py-3 text-center text-sm font-bold text-white shadow-md transition hover:bg-[#b91c1c] active:scale-98 cursor-pointer"
+                        >
+                          <LogOut size={16} className="text-[#F6D76A]" />
+                          <span>Logout</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </nav>
               </motion.div>

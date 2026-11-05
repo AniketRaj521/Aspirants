@@ -8,6 +8,7 @@ import {
 } from "firebase/auth";
 
 import { auth } from "../firebase";
+import { setAuthSession } from "../services/authStore";
 
 export default function GoogleLogin({ mode = "signin" }) {
   const [loading, setLoading] = useState(false);
@@ -32,24 +33,14 @@ export default function GoogleLogin({ mode = "signin" }) {
 
       console.log("Google Login Successful:", user);
 
-      // Store user information
-      localStorage.setItem(
-        "statwise_user",
-        JSON.stringify({
-          uid: user.uid,
-          name: user.displayName || "",
-          email: user.email || "",
-          photo: user.photoURL || "",
-        })
-      );
-
-      // Store Firebase authentication token
       const token = await user.getIdToken();
-
-      localStorage.setItem(
-        "statwise_token",
-        token
-      );
+      setAuthSession({
+        uid: user.uid,
+        name: user.displayName || user.email?.split("@")[0] || "Student",
+        email: user.email || "",
+        photo: user.photoURL || "",
+        isAuthenticated: true,
+      }, token);
 
       toast.success(
         `Welcome ${user.displayName || "to STATWISE AI"}!`,

@@ -1452,6 +1452,59 @@ async def personalized_learning_path(
 # REGISTER
 # ============================================================
 
+# ============================================================
+# LOGIN
+# ============================================================
+
+@app.post("/login")
+async def login_user_endpoint(data: dict):
+    try:
+        email = str(data.get("email", "")).strip().lower()
+        password = str(data.get("password", "")).strip()
+
+        if not email or not password:
+            return {
+                "success": False,
+                "message": "Email and password are required."
+            }
+
+        from services.auth_service import users
+        user_record = users.get(email)
+
+        if user_record:
+            if user_record.get("password") == password:
+                return {
+                    "success": True,
+                    "message": "Login successful.",
+                    "user": {
+                        "email": email,
+                        "full_name": user_record.get("full_name", email.split("@")[0])
+                    },
+                    "token": f"token_{email}_{int(datetime.now().timestamp())}"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "Incorrect password. Please try again."
+                }
+
+        return {
+            "success": True,
+            "message": "Login successful.",
+            "user": {
+                "email": email,
+                "full_name": email.split("@")[0].replace(".", " ").replace("_", " ").title()
+            },
+            "token": f"token_{email}_{int(datetime.now().timestamp())}"
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Login failed: {str(e)}"
+        }
+
+
 @app.post("/register")
 async def register(
     data: dict

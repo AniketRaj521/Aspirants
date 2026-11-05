@@ -31,6 +31,7 @@ import Certifications from "./pages/Certifications/Certifications";
 import CareerComparison from "./pages/CareerComparison/CareerComparison";
 
 import GenerateNotes from "./pages/GenerateNotes/GenerateNotes";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 
 // =========================================================
@@ -130,132 +131,187 @@ function App() {
 
       <Routes>
 
-        {/* HOME */}
-
+        {/* PUBLIC HOME & LANDING */}
         <Route
           path="/"
           element={
             <>
-             <Navbar dashboard={true} />
+              <Navbar dashboard={true} />
               <Home />
               <Footer />
             </>
           }
         />
-        <Route path="/digital-twin" element={<DigitalTwin />} />
-        <Route path="/igot" element={<IGOT />} />
-
 
         {/* AUTHENTICATION */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/verify-otp" element={<OTPVerification />} />
 
-        <Route
-          path="/login"
-          element={<Login />}
-        />
-
-        <Route
-          path="/signup"
-          element={<Signup />}
-        />
-
-        <Route
-          path="/verify-otp"
-          element={<OTPVerification />}
-        />
-<Route
-  path="/ppt-generator"
-  element={<PPTGenerator />}
-/>
-
-        {/* UPLOAD */}
-
-        <Route
-          path="/upload"
-          element={<Upload />}
-        />
-        <Route path="/flashcards" element={<Flashcards />} />
-
-
-        {/* MAIN PLATFORM */}
-
+        {/* PROTECTED PLATFORM MODULES - ACCESS RESTRICTED WITHOUT LOGIN */}
         <Route
           path="/dashboard"
-          element={<Dashboard />}
-        />
-
-        <Route
-          path="/skills"
-          element={<SkillIntelligence />}
-        />
-
-        <Route
-          path="/learning"
-          element={<Learning />}
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
         />
 
         <Route
           path="/roadmaps"
-          element={<PersonalizedRoadmap />}
+          element={
+            <ProtectedRoute>
+              <PersonalizedRoadmap />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/skills"
+          element={
+            <ProtectedRoute>
+              <SkillIntelligence />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/learning"
+          element={
+            <ProtectedRoute>
+              <Learning />
+            </ProtectedRoute>
+          }
         />
 
         <Route
           path="/certifications"
-          element={<Certifications />}
+          element={
+            <ProtectedRoute>
+              <Certifications />
+            </ProtectedRoute>
+          }
         />
 
         <Route
           path="/career-comparison"
-          element={<CareerComparison />}
+          element={
+            <ProtectedRoute>
+              <CareerComparison />
+            </ProtectedRoute>
+          }
         />
 
-
-        {/* ASSESSMENTS */}
-
+        {/* ASSESSMENTS (PROTECTED) */}
         <Route
           path="/assessments"
-          element={<Assessments />}
+          element={
+            <ProtectedRoute>
+              <Assessments />
+            </ProtectedRoute>
+          }
         />
 
         <Route
           path="/assessments/quiz"
-          element={<AssessmentQuiz />}
+          element={
+            <ProtectedRoute>
+              <AssessmentQuiz />
+            </ProtectedRoute>
+          }
         />
 
         <Route
           path="/assessments/codechef"
-          element={<CodeChefSkillTest />}
+          element={
+            <ProtectedRoute>
+              <CodeChefSkillTest />
+            </ProtectedRoute>
+          }
         />
 
-
-        {/* AI TUTOR */}
-
+        {/* AI FEATURES & LEARNING TOOLS (PROTECTED) */}
         <Route
           path="/tutor"
-          element={<Tutor />}
+          element={
+            <ProtectedRoute>
+              <Tutor />
+            </ProtectedRoute>
+          }
         />
-
-
-        {/* GENERATE NOTES */}
 
         <Route
           path="/generate-notes"
-          element={<GenerateNotes />}
+          element={
+            <ProtectedRoute>
+              <GenerateNotes />
+            </ProtectedRoute>
+          }
         />
-
-
-        {/* PROFILE */}
 
         <Route
-          path="/profile"
-          element={<Profile />}
+          path="/ppt-generator"
+          element={
+            <ProtectedRoute>
+              <PPTGenerator />
+            </ProtectedRoute>
+          }
         />
 
+        <Route
+          path="/upload"
+          element={
+            <ProtectedRoute>
+              <Upload />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* SETTINGS */}
+        <Route
+          path="/flashcards"
+          element={
+            <ProtectedRoute>
+              <Flashcards />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/digital-twin"
+          element={
+            <ProtectedRoute>
+              <DigitalTwin />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/igot"
+          element={
+            <ProtectedRoute>
+              <IGOT />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* USER PROFILE & SETTINGS (PROTECTED) */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/settings"
-          element={<Settings />}
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
         />
 
 

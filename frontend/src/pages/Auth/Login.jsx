@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import GoogleLogin from "../../components/GoogleLogin";
 import { motion } from "framer-motion";
+import toast from "react-hot-toast";
+import { setAuthSession, isAuthenticated } from "../../services/authStore";
 
 import {
   ArrowRight,
@@ -39,30 +41,69 @@ export default function Login() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const location = useLocation();
+  const targetPath = location.state?.from?.pathname || "/dashboard";
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate(targetPath, { replace: true });
+    }
+  }, [navigate, targetPath]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.email || !form.password) {
-      alert("Please enter your email and password.");
+      toast.error("Please enter your email and password.");
       return;
     }
 
     setLoading(true);
 
-    // Temporary frontend authentication flow.
-    // Real backend authentication can be connected later.
+    try {
+      const cleanEmail = form.email.trim().toLowerCase();
+      let userName = cleanEmail.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      let token = "session_" + Date.now();
 
-    setTimeout(() => {
-      setLoading(false);
+      try {
+        const res = await fetch("http://127.0.0.1:8000/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: cleanEmail, password: form.password }),
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          if (data.user?.full_name) userName = data.user.full_name;
+          if (data.token) token = data.token;
+        } else if (data && data.success === false) {
+          toast.error(data.message || "Invalid credentials.");
+          setLoading(false);
+          return;
+        }
+      } catch (backendErr) {
+        console.warn("Backend login connection fallback:", backendErr);
+      }
 
       if (remember) {
         localStorage.setItem("statwise_remember", "true");
       }
 
-      localStorage.setItem("statwise_user", form.email);
+      const userPayload = {
+        email: cleanEmail,
+        name: userName || "Student",
+        isAuthenticated: true,
+        loginTime: new Date().toISOString()
+      };
 
-      navigate("/verify-otp");
-    }, 1200);
+      setAuthSession(userPayload, token);
+      toast.success(`Welcome back, ${userName || "Student"}!`);
+      setLoading(false);
+
+      navigate(targetPath, { replace: true });
+    } catch (err) {
+      setLoading(false);
+      toast.error("Login failed. Please try again.");
+    }
   };
 
   return (

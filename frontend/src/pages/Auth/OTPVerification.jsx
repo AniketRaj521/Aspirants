@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { setAuthSession } from "../../services/authStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -120,6 +121,22 @@ export default function VerifyOTP() {
     setTimeout(() => {
       setVerifying(false);
       setVerified(true);
+
+      const pendingEmail = localStorage.getItem("pending_email") || "student@aspirants.ai";
+      const pendingUserRaw = localStorage.getItem("statwise_pending_user");
+      let fullName = pendingEmail.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      if (pendingUserRaw) {
+        try {
+          const parsed = JSON.parse(pendingUserRaw);
+          if (parsed.full_name) fullName = parsed.full_name;
+        } catch (e) {}
+      }
+
+      setAuthSession({
+        email: pendingEmail,
+        name: fullName,
+        isAuthenticated: true,
+      }, "session_" + Date.now());
 
       setTimeout(() => {
         navigate("/dashboard");
