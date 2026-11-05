@@ -719,8 +719,306 @@ export const analyzeDigitalTwin = async (file) => {
 };
 
 
+// ===============================
+// STUDENT INTELLIGENCE & ROADMAP
+// ===============================
+
+export const getStudentCareerRoles = async () => {
+  try {
+    const res = await api.get("/api/student/roles");
+    return res.data?.roles || [];
+  } catch (err) {
+    console.warn("Backend roles failed, using client fallback", err);
+    return [];
+  }
+};
+
+export const fetchStudentSkillGaps = async (roleId, skills) => {
+  try {
+    const res = await api.post("/api/student/skill-gaps", {
+      role_id: roleId,
+      skills: skills,
+    });
+    return res.data?.data || null;
+  } catch (err) {
+    console.warn("Backend skill gaps failed, using client fallback", err);
+    return null;
+  }
+};
+
+export const fetchStudentRecommendations = async (roleId, skillGaps) => {
+  try {
+    const res = await api.post("/api/student/recommendations", {
+      role_id: roleId,
+      skill_gaps: skillGaps,
+    });
+    return res.data?.data || null;
+  } catch (err) {
+    console.warn("Backend recommendations failed, using client fallback", err);
+    return null;
+  }
+};
+
+export const fetchStudentRoadmap = async (
+  roleId,
+  skills,
+  timelineWeeks = 12,
+  weeklyHours = 10,
+  forceRegenerate = false,
+  studentId = "default_student"
+) => {
+  try {
+    const res = await api.post("/api/student/roadmap", {
+      role_id: roleId,
+      skills: skills,
+      timeline_weeks: timelineWeeks,
+      weekly_hours: weeklyHours,
+      force_regenerate: forceRegenerate,
+      student_id: studentId,
+    });
+    return res.data?.data || null;
+  } catch (err) {
+    console.warn("Backend roadmap failed, using client fallback", err);
+    return null;
+  }
+};
+
+export const toggleStudentRoadmapMilestone = async (
+  roleId,
+  milestoneId,
+  completed = null,
+  studentId = "default_student"
+) => {
+  try {
+    const res = await api.post("/api/student/roadmap/milestone", {
+      role_id: roleId,
+      milestone_id: milestoneId,
+      completed: completed,
+      student_id: studentId,
+    });
+    return res.data?.data || null;
+  } catch (err) {
+    console.warn("Milestone toggle backend sync failed", err);
+    return null;
+  }
+};
+
+export const fetchSavedRoadmap = async (roleId, studentId = "default_student") => {
+  try {
+    const res = await api.get(`/api/student/roadmap/${encodeURIComponent(roleId)}?student_id=${encodeURIComponent(studentId)}`);
+    return res.data?.data || null;
+  } catch (err) {
+    return null;
+  }
+};
+
+export const fetchStudentResources = async () => {
+  try {
+    const res = await api.get("/api/student/resources");
+    return res.data || { resources: [], certifications: [] };
+  } catch (err) {
+    console.warn("Backend resources failed, using client fallback", err);
+    return { resources: [], certifications: [] };
+  }
+};
+
 // =======================================================
 // DEFAULT AXIOS INSTANCE
 // =======================================================
 
 export default api;
+export const fetchStudentSkillProgress = async (studentId = "default_student") => {
+  try {
+    const res = await api.get(`/api/student/skill-progress?student_id=${encodeURIComponent(studentId)}`);
+    return res.data?.data || null;
+  } catch (err) {
+    console.warn("API skill progress call fallback:", err);
+    return null;
+  }
+};
+
+// =======================================================
+// CERTIFICATIONS & ACHIEVEMENTS API CLIENT
+// =======================================================
+
+export const fetchCertifications = async (studentId = "default_student", params = {}) => {
+  try {
+    const q = new URLSearchParams({
+      student_id: studentId,
+      ...(params.category && params.category !== "all" ? { category: params.category } : {}),
+      ...(params.verification_status && params.verification_status !== "all" ? { verification_status: params.verification_status } : {}),
+      ...(params.search ? { search: params.search } : {}),
+      ...(params.sort_by ? { sort_by: params.sort_by } : {}),
+    });
+    const res = await api.get(`/api/certifications?${q.toString()}`);
+    return res.data?.data || [];
+  } catch (err) {
+    console.warn("fetchCertifications fallback:", err);
+    return null;
+  }
+};
+
+export const fetchCertificationById = async (certId, studentId = "default_student") => {
+  try {
+    const res = await api.get(`/api/certifications/${encodeURIComponent(certId)}?student_id=${encodeURIComponent(studentId)}`);
+    return res.data?.data || null;
+  } catch (err) {
+    console.warn("fetchCertificationById failed:", err);
+    return null;
+  }
+};
+
+export const createCertification = async (payload) => {
+  try {
+    const res = await api.post("/api/certifications", payload);
+    return res.data?.data || null;
+  } catch (err) {
+    console.error("createCertification failed:", err);
+    throw err;
+  }
+};
+
+export const updateCertification = async (certId, payload) => {
+  try {
+    const res = await api.put(`/api/certifications/${encodeURIComponent(certId)}`, payload);
+    return res.data?.data || null;
+  } catch (err) {
+    console.error("updateCertification failed:", err);
+    throw err;
+  }
+};
+
+export const deleteCertification = async (certId, studentId = "default_student") => {
+  try {
+    const res = await api.delete(`/api/certifications/${encodeURIComponent(certId)}?student_id=${encodeURIComponent(studentId)}`);
+    return res.data?.status === "success";
+  } catch (err) {
+    console.error("deleteCertification failed:", err);
+    throw err;
+  }
+};
+
+export const fetchCertificationAnalytics = async (studentId = "default_student") => {
+  try {
+    const res = await api.get(`/api/certifications/analytics/overview?student_id=${encodeURIComponent(studentId)}`);
+    return res.data?.data || null;
+  } catch (err) {
+    console.warn("fetchCertificationAnalytics fallback:", err);
+    return null;
+  }
+};
+
+export const fetchAchievements = async (studentId = "default_student", params = {}) => {
+  try {
+    const q = new URLSearchParams({
+      student_id: studentId,
+      ...(params.category && params.category !== "all" ? { category: params.category } : {}),
+      ...(params.search ? { search: params.search } : {}),
+      ...(params.sort_by ? { sort_by: params.sort_by } : {}),
+    });
+    const res = await api.get(`/api/achievements?${q.toString()}`);
+    return res.data?.data || [];
+  } catch (err) {
+    console.warn("fetchAchievements fallback:", err);
+    return null;
+  }
+};
+
+export const createAchievement = async (payload) => {
+  try {
+    const res = await api.post("/api/achievements", payload);
+    return res.data?.data || null;
+  } catch (err) {
+    console.error("createAchievement failed:", err);
+    throw err;
+  }
+};
+
+export const updateAchievement = async (achId, payload) => {
+  try {
+    const res = await api.put(`/api/achievements/${encodeURIComponent(achId)}`, payload);
+    return res.data?.data || null;
+  } catch (err) {
+    console.error("updateAchievement failed:", err);
+    throw err;
+  }
+};
+
+export const deleteAchievement = async (achId, studentId = "default_student") => {
+  try {
+    const res = await api.delete(`/api/achievements/${encodeURIComponent(achId)}?student_id=${encodeURIComponent(studentId)}`);
+    return res.data?.status === "success";
+  } catch (err) {
+    console.error("deleteAchievement failed:", err);
+    throw err;
+  }
+};
+
+export const uploadCertificateFile = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await api.post("/api/upload-file", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  } catch (err) {
+    console.error("uploadCertificateFile failed:", err);
+    throw err;
+  }
+};
+
+
+// =======================================================
+// CAREER ROLE COMPARISON APIS
+// =======================================================
+
+export const fetchCareerRoles = async () => {
+  try {
+    const res = await api.get("/api/career-roles");
+    return res.data?.data || [];
+  } catch (err) {
+    console.warn("fetchCareerRoles fallback:", err);
+    return [];
+  }
+};
+
+export const fetchCareerRoleById = async (roleId) => {
+  try {
+    const res = await api.get(`/api/career-roles/${encodeURIComponent(roleId)}`);
+    return res.data?.data || null;
+  } catch (err) {
+    console.warn(`fetchCareerRoleById (${roleId}) fallback:`, err);
+    return null;
+  }
+};
+
+export const compareCareerRoles = async (payload) => {
+  try {
+    const res = await api.post("/api/career-roles/compare", payload);
+    return res.data;
+  } catch (err) {
+    console.error("compareCareerRoles failed:", err);
+    throw err;
+  }
+};
+
+export const fetchCareerRankings = async (studentId = "default_student") => {
+  try {
+    const res = await api.get(`/api/career-roles/rankings?student_id=${encodeURIComponent(studentId)}`);
+    return res.data?.data || [];
+  } catch (err) {
+    console.warn("fetchCareerRankings fallback:", err);
+    return [];
+  }
+};
+
+export const generateCareerActionPlan = async (payload) => {
+  try {
+    const res = await api.post("/api/career-roles/action-plan", payload);
+    return res.data?.data || null;
+  } catch (err) {
+    console.error("generateCareerActionPlan failed:", err);
+    throw err;
+  }
+};

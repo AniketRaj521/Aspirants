@@ -1,2454 +1,1044 @@
-import { useMemo, useRef, useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
 import {
   ArrowRight,
+  Award,
+  BarChart3,
   BookOpen,
-  BrainCircuit,
+  Brain,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Clock3,
-  FileText,
-  Filter,
+  ExternalLink,
   Flame,
+  Globe,
   GraduationCap,
-  Loader2,
+  Layers,
+  Lightbulb,
+  LineChart,
+  PieChart as PieIcon,
   Play,
+  Plus,
+  RefreshCw,
+  RotateCcw,
   Search,
   Sparkles,
+  Star,
   Target,
   TrendingUp,
-  UploadCloud,
-  X,
   Zap,
 } from "lucide-react";
-
-import { useNavigate } from "react-router-dom";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
-import coursesData from "../../data/courses.json";
-import statwiseAnalysis from "../../data/statwiseAnalysis";
-
-const API = "http://127.0.0.1:8000";
-
-/* ============================================================
-   HELPERS
-============================================================ */
-
-function text(value, fallback = "") {
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value);
-  }
-
-  if (value && typeof value === "object") {
-    return (
-      value.name ||
-      value.title ||
-      value.label ||
-      value.skill ||
-      fallback
-    );
-  }
-
-  return fallback;
-}
-
-function normalizeCourses(data) {
-  if (Array.isArray(data)) return data;
-
-  if (Array.isArray(data?.courses)) {
-    return data.courses;
-  }
-
-  if (data && typeof data === "object") {
-    const flattened = [];
-
-    Object.values(data).forEach((group) => {
-      if (Array.isArray(group)) {
-        flattened.push(...group);
-      }
-    });
-
-    return flattened;
-  }
-
-  return [];
-}
-
-function normalizeSkills(data) {
-  const skills =
-    data?.skills ||
-    data?.skill_gap_analysis?.gaps ||
-    data?.skillGapAnalysis?.gaps ||
-    data?.gaps ||
-    [];
-
-  if (!Array.isArray(skills)) return [];
-
-  return skills.map((item) => {
-    const current = Number(
-      item?.current ??
-        item?.current_score ??
-        item?.score ??
-        0
-    );
-
-    const target = Number(
-      item?.target ??
-        item?.target_score ??
-        70
-    );
-
-    return {
-      name: text(
-        item?.name || item?.skill,
-        "Skill"
-      ),
-      current,
-      target,
-      gap: Math.max(0, target - current),
-    };
-  });
-}
-
-/* ============================================================
-   COURSE CARD
-============================================================ */
-
-function CourseCard({
-  course,
-  index,
-  recommended,
-  onOpen,
-}) {
-  const title = text(
-    course?.title || course?.name,
-    "Learning Course"
-  );
-
-  const description = text(
-    course?.description,
-    "Build practical knowledge and strengthen your professional competency."
-  );
-
-  const category = text(
-    course?.category,
-    "Skill Development"
-  );
-
-  const duration = text(
-    course?.duration,
-    "Self-paced"
-  );
-
-  const level = text(
-    course?.level,
-    "Intermediate"
-  );
-
-  const progress = Number(
-    course?.progress ?? 0
-  );
-
-  return (
-    <motion.div
-      initial={{
-        opacity: 0,
-        y: 25,
-      }}
-      whileInView={{
-        opacity: 1,
-        y: 0,
-      }}
-      viewport={{
-        once: true,
-      }}
-      transition={{
-        delay: index * 0.07,
-        duration: 0.45,
-      }}
-      whileHover={{
-        y: -7,
-      }}
-      className="group relative overflow-hidden rounded-[1.7rem] border border-black/8 bg-white shadow-sm transition hover:border-black/15 hover:shadow-xl"
-    >
-      {recommended && (
-        <div className="absolute right-4 top-4 z-10 flex items-center gap-1.5 rounded-full bg-[#F6D76A] px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#172033]">
-          <Sparkles size={11} />
-          AI Pick
-        </div>
-      )}
-
-      <div className="relative h-36 overflow-hidden bg-[#172033]">
-        <motion.div
-          className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#F6D76A]/10 blur-3xl"
-          animate={{
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            duration: 5,
-            repeat: Infinity,
-          }}
-        />
-
-        <div
-          className="absolute inset-0 opacity-[0.08]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.8) 1px, transparent 1px)",
-            backgroundSize: "28px 28px",
-          }}
-        />
-
-        <div className="relative flex h-full items-center justify-between px-6">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F6D76A] text-[#172033] shadow-lg">
-            <BookOpen size={25} />
-          </div>
-
-          <div className="text-right text-white">
-            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/40">
-              Course
-            </div>
-
-            <div className="mt-1 text-sm font-black">
-              {category}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-5">
-        <div className="flex items-center gap-2">
-          <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-[10px] font-black uppercase text-gray-500">
-            {level}
-          </span>
-
-          <span className="flex items-center gap-1 text-xs text-gray-400">
-            <Clock3 size={13} />
-            {duration}
-          </span>
-        </div>
-
-        <h3 className="mt-4 min-h-[52px] text-lg font-black leading-6">
-          {title}
-        </h3>
-
-        <p className="mt-2 line-clamp-2 min-h-[48px] text-sm leading-6 text-gray-500">
-          {description}
-        </p>
-
-        <div className="mt-5">
-          <div className="mb-2 flex justify-between text-xs">
-            <span className="font-semibold text-gray-400">
-              Your progress
-            </span>
-
-            <span className="font-black">
-              {progress}%
-            </span>
-          </div>
-
-          <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-            <motion.div
-              initial={{
-                width: 0,
-              }}
-              whileInView={{
-                width: `${progress}%`,
-              }}
-              viewport={{
-                once: true,
-              }}
-              transition={{
-                duration: 0.8,
-              }}
-              className="h-full rounded-full bg-[#172033]"
-            />
-          </div>
-        </div>
-
-        <div className="mt-5 flex gap-2">
-          <button
-            onClick={() => onOpen(course)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-black/10 py-3 text-sm font-black transition hover:bg-gray-50"
-          >
-            View Details
-          </button>
-
-          <button
-            onClick={() => {
-              toast.success(`Opening ${title}`);
-            }}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#172033] px-4 py-3 text-sm font-black text-white transition hover:bg-black"
-          >
-            <Play
-              size={15}
-              fill="currentColor"
-            />
-            Start
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-/* ============================================================
-   GENERATION LOADING SCREEN
-============================================================ */
-
-function GenerationOverlay() {
-  const steps = [
-    "Reading your learning material",
-    "Analyzing competency requirements",
-    "Identifying learning priorities",
-    "Building personalized modules",
-    "Optimizing your learning roadmap",
-  ];
-
-  const [step, setStep] = useState(0);
-
-  useState(() => {
-    const timer = setInterval(() => {
-      setStep((current) =>
-        current < steps.length - 1
-          ? current + 1
-          : current
-      );
-    }, 1400);
-
-    return () => clearInterval(timer);
-  });
-
-  return (
-    <motion.div
-      initial={{
-        opacity: 0,
-      }}
-      animate={{
-        opacity: 1,
-      }}
-      exit={{
-        opacity: 0,
-      }}
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-[#172033]/85 p-5 backdrop-blur-md"
-    >
-      <motion.div
-        initial={{
-          scale: 0.9,
-          y: 20,
-        }}
-        animate={{
-          scale: 1,
-          y: 0,
-        }}
-        className="w-full max-w-xl overflow-hidden rounded-[2rem] bg-white shadow-2xl"
-      >
-        <div className="bg-[#172033] p-8 text-white">
-          <div className="flex items-center gap-4">
-            <motion.div
-              animate={{
-                rotate: 360,
-              }}
-              transition={{
-                duration: 5,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-              className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F6D76A] text-[#172033]"
-            >
-              <BrainCircuit size={30} />
-            </motion.div>
-
-            <div>
-              <div className="text-xs font-black uppercase tracking-[0.2em] text-[#F6D76A]">
-                STATWISE AI
-              </div>
-
-              <h2 className="mt-1 text-2xl font-black">
-                Building your learning path
-              </h2>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-7">
-          <div className="space-y-4">
-            {steps.map((item, index) => {
-              const active = index <= step;
-
-              return (
-                <motion.div
-                  key={item}
-                  initial={{
-                    opacity: 0,
-                    x: -15,
-                  }}
-                  animate={{
-                    opacity: active ? 1 : 0.35,
-                    x: 0,
-                  }}
-                  className="flex items-center gap-3"
-                >
-                  {active ? (
-                    <CheckCircle2
-                      size={20}
-                      className="text-[#172033]"
-                    />
-                  ) : (
-                    <div className="h-5 w-5 rounded-full border-2 border-gray-200" />
-                  )}
-
-                  <span
-                    className={`text-sm ${
-                      active
-                        ? "font-bold text-[#172033]"
-                        : "text-gray-400"
-                    }`}
-                  >
-                    {item}
-                  </span>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          <div className="mt-7 h-2 overflow-hidden rounded-full bg-gray-100">
-            <motion.div
-              animate={{
-                width: `${((step + 1) / steps.length) * 100}%`,
-              }}
-              className="h-full rounded-full bg-[#F6D76A]"
-            />
-          </div>
-
-          <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-gray-400">
-            <Loader2
-              size={14}
-              className="animate-spin"
-            />
-            AI is personalizing your roadmap...
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-/* ============================================================
-   LEARNING PATH DISPLAY
-============================================================ */
-
-function LearningPathResult({
-  path,
-  filename,
-  onReset,
-}) {
-  const [openStage, setOpenStage] =
-    useState(0);
-
-  const stages = Array.isArray(path?.stages)
-    ? path.stages
-    : [];
-
-  const strengths = Array.isArray(
-    path?.strengths
-  )
-    ? path.strengths
-    : [];
-
-  const skillGaps = Array.isArray(
-    path?.skill_gaps
-  )
-    ? path.skill_gaps
-    : [];
-
-  const milestones = Array.isArray(
-    path?.milestones
-  )
-    ? path.milestones
-    : [];
-
-  return (
-    <motion.section
-      initial={{
-        opacity: 0,
-        y: 30,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
-      className="mx-auto max-w-[1500px] px-5 py-12 lg:px-8"
-    >
-      <div className="overflow-hidden rounded-[2rem] border border-black/8 bg-white shadow-xl">
-        {/* HEADER */}
-
-        <div className="relative overflow-hidden bg-[#172033] p-7 text-white lg:p-10">
-          <motion.div
-            className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#F6D76A]/10 blur-3xl"
-            animate={{
-              scale: [1, 1.25, 1],
-            }}
-            transition={{
-              duration: 6,
-              repeat: Infinity,
-            }}
-          />
-
-          <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[#F6D76A]">
-                <Sparkles size={15} />
-                AI Generated Learning Path
-              </div>
-
-              <h2 className="mt-3 text-3xl font-black lg:text-4xl">
-                {text(
-                  path?.title,
-                  "Your Personalized Learning Journey"
-                )}
-              </h2>
-
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/55">
-                {text(
-                  path?.subtitle ||
-                    path?.goal ||
-                    path?.description,
-                  "A learning roadmap generated from your uploaded learning material."
-                )}
-              </p>
-
-              {filename && (
-                <div className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white/70">
-                  <FileText size={14} />
-                  {filename}
-                </div>
-              )}
-            </div>
-
-            <div className="flex shrink-0 items-center gap-3 rounded-2xl bg-white/10 p-4 backdrop-blur">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#F6D76A] text-[#172033]">
-                <GraduationCap size={23} />
-              </div>
-
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-white/40">
-                  Learner Level
-                </div>
-
-                <div className="mt-1 font-black">
-                  {text(
-                    path?.learner_level,
-                    "Personalized"
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* SUMMARY STATS */}
-
-        <div className="grid border-b border-black/5 sm:grid-cols-3">
-          <div className="flex items-center gap-4 p-6 sm:border-r">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F6D76A]/25">
-              <Clock3 size={20} />
-            </div>
-
-            <div>
-              <div className="text-2xl font-black">
-                {text(
-                  path?.estimated_hours,
-                  "—"
-                )}
-              </div>
-
-              <div className="text-xs text-gray-400">
-                Estimated hours
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 border-t border-black/5 p-6 sm:border-t-0 sm:border-r">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F6D76A]/25">
-              <Target size={20} />
-            </div>
-
-            <div>
-              <div className="text-2xl font-black">
-                {stages.length}
-              </div>
-
-              <div className="text-xs text-gray-400">
-                Learning stages
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 border-t border-black/5 p-6 sm:border-t-0">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F6D76A]/25">
-              <TrendingUp size={20} />
-            </div>
-
-            <div>
-              <div className="text-2xl font-black">
-                {milestones.length}
-              </div>
-
-              <div className="text-xs text-gray-400">
-                Milestones
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-8 p-6 lg:grid-cols-[0.8fr_1.2fr] lg:p-10">
-          {/* LEFT */}
-
-          <div className="space-y-6">
-            {/* SKILL GAPS */}
-
-            {skillGaps.length > 0 && (
-              <div className="rounded-3xl bg-[#fffdf5] p-6">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#172033]/45">
-                  <Target size={15} />
-                  Skill Gaps
-                </div>
-
-                <h3 className="mt-2 text-xl font-black">
-                  Focus areas
-                </h3>
-
-                <div className="mt-5 space-y-3">
-                  {skillGaps.map(
-                    (gap, index) => {
-                      const skillName =
-                        text(
-                          gap?.skill ||
-                            gap?.name ||
-                            gap?.title,
-                          `Skill ${index + 1}`
-                        );
-
-                      const gapValue =
-                        Number(
-                          gap?.gap ??
-                            gap?.difference ??
-                            0
-                        );
-
-                      return (
-                        <div
-                          key={`${skillName}-${index}`}
-                          className="rounded-2xl bg-white p-4 shadow-sm"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="font-black">
-                              {skillName}
-                            </span>
-
-                            {gapValue > 0 && (
-                              <span className="rounded-full bg-red-50 px-3 py-1 text-[10px] font-black text-red-600">
-                                GAP {Math.round(
-                                  gapValue
-                                )}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="mt-3 text-xs leading-5 text-gray-500">
-                            {text(
-                              gap?.reason ||
-                                gap?.description,
-                              "This competency has been identified as a priority for your learning journey."
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* STRENGTHS */}
-
-            {strengths.length > 0 && (
-              <div className="rounded-3xl bg-[#172033] p-6 text-white">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#F6D76A]">
-                  <Zap size={15} />
-                  Current strengths
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  {strengths.map(
-                    (strength, index) => (
-                      <div
-                        key={index}
-                        className="flex items-start gap-3 rounded-xl bg-white/5 p-3"
-                      >
-                        <CheckCircle2
-                          size={17}
-                          className="mt-0.5 shrink-0 text-[#F6D76A]"
-                        />
-
-                        <span className="text-sm text-white/75">
-                          {text(
-                            strength,
-                            "Existing competency"
-                          )}
-                        </span>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT - ROADMAP */}
-
-          <div>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#172033]/40">
-                  <Sparkles size={15} />
-                  Personalized roadmap
-                </div>
-
-                <h3 className="mt-2 text-2xl font-black">
-                  Your learning journey
-                </h3>
-              </div>
-            </div>
-
-            <div className="relative mt-7 space-y-4">
-              <div className="absolute bottom-8 left-6 top-8 hidden w-px bg-black/10 sm:block" />
-
-              {stages.length > 0 ? (
-                stages.map(
-                  (stage, stageIndex) => {
-                    const isOpen =
-                      openStage ===
-                      stageIndex;
-
-                    const modules =
-                      Array.isArray(
-                        stage?.modules
-                      )
-                        ? stage.modules
-                        : [];
-
-                    return (
-                      <motion.div
-                        key={
-                          stage?.id ||
-                          stage?.stage_id ||
-                          stageIndex
-                        }
-                        layout
-                        className="relative z-10"
-                      >
-                        <button
-                          onClick={() =>
-                            setOpenStage(
-                              isOpen
-                                ? -1
-                                : stageIndex
-                            )
-                          }
-                          className="w-full rounded-2xl border border-black/8 bg-white p-4 text-left shadow-sm transition hover:shadow-md"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F6D76A] font-black text-[#172033]">
-                              {stageIndex +
-                                1}
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="text-xs font-black uppercase tracking-wider text-gray-400">
-                                Stage{" "}
-                                {stageIndex +
-                                  1}
-                              </div>
-
-                              <h4 className="mt-1 text-lg font-black">
-                                {text(
-                                  stage?.title ||
-                                    stage?.name,
-                                  `Learning Stage ${stageIndex + 1}`
-                                )}
-                              </h4>
-
-                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">
-                                {text(
-                                  stage?.description,
-                                  "Build the next layer of your competency."
-                                )}
-                              </p>
-                            </div>
-
-                            <div className="shrink-0">
-                              {isOpen ? (
-                                <ChevronUp
-                                  size={20}
-                                />
-                              ) : (
-                                <ChevronDown
-                                  size={20}
-                                />
-                              )}
-                            </div>
-                          </div>
-                        </button>
-
-                        <AnimatePresence>
-                          {isOpen && (
-                            <motion.div
-                              initial={{
-                                opacity: 0,
-                                height: 0,
-                              }}
-                              animate={{
-                                opacity: 1,
-                                height: "auto",
-                              }}
-                              exit={{
-                                opacity: 0,
-                                height: 0,
-                              }}
-                              className="overflow-hidden"
-                            >
-                              <div className="ml-4 border-l border-black/10 pl-5 pt-3 sm:ml-6">
-                                {modules.length >
-                                0 ? (
-                                  <div className="space-y-3">
-                                    {modules.map(
-                                      (
-                                        module,
-                                        moduleIndex
-                                      ) => (
-                                        <div
-                                          key={
-                                            module?.id ||
-                                            module?.module_id ||
-                                            moduleIndex
-                                          }
-                                          className="rounded-2xl bg-[#fffdf5] p-4"
-                                        >
-                                          <div className="flex items-start gap-3">
-                                            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#172033] text-white">
-                                              <BookOpen
-                                                size={
-                                                  14
-                                                }
-                                              />
-                                            </div>
-
-                                            <div className="min-w-0 flex-1">
-                                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <h5 className="font-black">
-                                                  {text(
-                                                    module?.title ||
-                                                      module?.name,
-                                                    `Module ${moduleIndex + 1}`
-                                                  )}
-                                                </h5>
-
-                                                {module?.duration && (
-                                                  <span className="flex items-center gap-1 text-[10px] font-bold text-gray-400">
-                                                    <Clock3
-                                                      size={
-                                                        12
-                                                      }
-                                                    />
-                                                    {text(
-                                                      module.duration
-                                                    )}
-                                                  </span>
-                                                )}
-                                              </div>
-
-                                              <p className="mt-1 text-xs leading-5 text-gray-500">
-                                                {text(
-                                                  module?.description ||
-                                                    module?.objective ||
-                                                    module?.summary,
-                                                  "Complete this learning module and apply the concepts through practice."
-                                                )}
-                                              </p>
-
-                                              <div className="mt-3 flex flex-wrap gap-2">
-                                                {module?.skill && (
-                                                  <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-gray-500">
-                                                    {text(
-                                                      module.skill
-                                                    )}
-                                                  </span>
-                                                )}
-
-                                                {module?.assessment && (
-                                                  <span className="rounded-full bg-[#F6D76A]/30 px-2.5 py-1 text-[10px] font-bold text-[#172033]">
-                                                    Assessment
-                                                  </span>
-                                                )}
-
-                                                {module?.practice && (
-                                                  <span className="rounded-full bg-[#172033]/10 px-2.5 py-1 text-[10px] font-bold text-[#172033]">
-                                                    Practice
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="rounded-2xl bg-[#fffdf5] p-5 text-sm text-gray-500">
-                                    {text(
-                                      stage?.content ||
-                                        stage?.description,
-                                      "Follow this stage as part of your personalized learning journey."
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                    );
-                  }
-                )
-              ) : (
-                <div className="rounded-2xl border border-dashed border-black/15 p-8 text-center">
-                  <BrainCircuit
-                    size={35}
-                    className="mx-auto text-gray-300"
-                  />
-
-                  <p className="mt-3 text-sm text-gray-500">
-                    The AI returned a learning path, but no stages were detected.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* MILESTONES */}
-
-            {milestones.length > 0 && (
-              <div className="mt-8 rounded-3xl bg-[#F6D76A]/20 p-6">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#172033]/50">
-                  <CheckCircle2 size={15} />
-                  Milestones
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {milestones.map(
-                    (milestone, index) => (
-                      <div
-                        key={index}
-                        className="flex items-start gap-3"
-                      >
-                        <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#172033] text-[10px] font-black text-white">
-                          {index + 1}
-                        </div>
-
-                        <div className="text-sm font-semibold text-[#172033]/75">
-                          {text(
-                            milestone,
-                            "Learning milestone"
-                          )}
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* FINAL OUTCOME */}
-
-            {path?.outcome && (
-              <div className="mt-6 rounded-3xl bg-[#172033] p-6 text-white">
-                <div className="text-xs font-black uppercase tracking-wider text-[#F6D76A]">
-                  Expected outcome
-                </div>
-
-                <p className="mt-3 text-sm leading-6 text-white/70">
-                  {text(
-                    path.outcome,
-                    "Complete the personalized learning journey and improve your targeted competencies."
-                  )}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ACTIONS */}
-
-        <div className="flex flex-col gap-3 border-t border-black/5 bg-[#fffdf5] p-6 sm:flex-row sm:justify-end">
-          <button
-            onClick={onReset}
-            className="flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-5 py-3 text-sm font-black transition hover:bg-gray-50"
-          >
-            <UploadCloud size={17} />
-            Upload Another PDF
-          </button>
-
-          <button
-            onClick={() => {
-              window.scrollTo({
-                top: 0,
-                behavior: "smooth",
-              });
-            }}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#172033] px-5 py-3 text-sm font-black text-white"
-          >
-            <ArrowRight size={17} />
-            Continue Learning
-          </button>
-        </div>
-      </div>
-    </motion.section>
-  );
-}
-
-/* ============================================================
-   MAIN LEARNING PAGE
-============================================================ */
+import Navbar from "../../components/Navbar";
+import Footer from "../../components/Footer";
+import { COURSES_CATALOG, matchesSkillStrict } from "../../services/recommendationEngine";
+import {
+  getStudentData,
+  subscribeToStudentData,
+  getSkillProgressTracking,
+  DEFAULT_ROLES,
+} from "../../services/studentStore";
+
+// Color palette for charts
+const PIE_COLORS = ["#10B981", "#3B82F6", "#F59E0B", "#EF4444", "#8B5CF6"];
 
 export default function Learning() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialSkill = searchParams.get("skill") || "";
+  const initialView = searchParams.get("view") || "progress"; // 'progress' | 'courses' | 'history'
 
-  const fileInputRef = useRef(null);
+  const [studentData, setStudentData] = useState(() => getStudentData());
+  const [activeView, setActiveView] = useState(initialView);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [courseSkillFilter, setCourseSkillFilter] = useState(initialSkill || "all");
+  const [coursePlatformFilter, setCoursePlatformFilter] = useState("all");
+  const [courseDifficultyFilter, setCourseDifficultyFilter] = useState("all");
+  const [courseCertOnly, setCourseCertOnly] = useState(false);
 
-  const [search, setSearch] =
-    useState("");
-
-  const [category, setCategory] =
-    useState("All");
-
-  const [selectedCourse, setSelectedCourse] =
-    useState(null);
-
-  const [selectedFile, setSelectedFile] =
-    useState(null);
-
-  const [isDragging, setIsDragging] =
-    useState(false);
-
-  const [isGenerating, setIsGenerating] =
-    useState(false);
-
-  const [learningPath, setLearningPath] =
-    useState(null);
-
-  const [generatedFilename, setGeneratedFilename] =
-    useState("");
-
-  const [role, setRole] =
-    useState("Statistical Officer");
-
-  const [assessmentScore, setAssessmentScore] =
-    useState(
-      Number(
-        statwiseAnalysis?.assessment_score ??
-          statwiseAnalysis?.assessmentScore ??
-          65
-      )
-    );
-
-  const [quizAccuracy, setQuizAccuracy] =
-    useState(
-      Number(
-        statwiseAnalysis?.quiz_accuracy ??
-          statwiseAnalysis?.quizAccuracy ??
-          70
-      )
-    );
-
-  const [yearsExperience, setYearsExperience] =
-    useState(2);
-
-  const [learningGoal, setLearningGoal] =
-    useState(
-      "Improve professional competency and close identified skill gaps."
-    );
-
-  const courses = useMemo(
-    () => normalizeCourses(coursesData),
-    []
-  );
-
-  const skills = useMemo(
-    () => normalizeSkills(statwiseAnalysis),
-    []
-  );
-
-  /* ============================================================
-     CATEGORIES
-  ============================================================ */
-
-  const categories = useMemo(() => {
-    const values = courses
-      .map((course) =>
-        text(
-          course?.category,
-          "Skill Development"
-        )
-      )
-      .filter(Boolean);
-
-    return [
-      "All",
-      ...Array.from(new Set(values)),
-    ];
-  }, [courses]);
-
-  /* ============================================================
-     PRIORITY SKILLS
-  ============================================================ */
-
-  const prioritySkills = useMemo(() => {
-    return [...skills]
-      .sort((a, b) => b.gap - a.gap)
-      .slice(0, 3);
-  }, [skills]);
-
-  /* ============================================================
-     FILTER COURSES
-  ============================================================ */
-
-  const filteredCourses = useMemo(() => {
-    return courses.filter((course) => {
-      const title = text(
-        course?.title || course?.name
-      ).toLowerCase();
-
-      const description = text(
-        course?.description
-      ).toLowerCase();
-
-      const courseCategory = text(
-        course?.category,
-        "Skill Development"
-      );
-
-      const searchValue =
-        search.toLowerCase();
-
-      const matchesSearch =
-        title.includes(searchValue) ||
-        description.includes(searchValue);
-
-      const matchesCategory =
-        category === "All" ||
-        courseCategory === category;
-
-      return (
-        matchesSearch &&
-        matchesCategory
-      );
+  // Subscribe to live student updates (e.g. after taking a test)
+  useEffect(() => {
+    const unsub = subscribeToStudentData((data) => {
+      setStudentData(data);
     });
-  }, [
-    courses,
-    search,
-    category,
-  ]);
+    return unsub;
+  }, []);
 
-  const aiRecommendations =
-    filteredCourses.slice(0, 3);
+  // Compute live progress tracking
+  const progressData = useMemo(() => {
+    return getSkillProgressTracking(studentData.profile?.targetRole);
+  }, [studentData]);
 
-  /* ============================================================
-     FILE VALIDATION
-  ============================================================ */
+  const { skillsProgress, summary, weeklyActivity, learningTasks } = progressData;
 
-  const handleFile = (file) => {
-    if (!file) return;
+  // Chart data: Before vs After Dual Bar Chart
+  const dualBarData = useMemo(() => {
+    return skillsProgress.map((s) => ({
+      name: s.skill.length > 15 ? s.skill.slice(0, 13) + "…" : s.skill,
+      fullName: s.skill,
+      "Before Learning": s.beforeScore,
+      "After Learning": s.afterScore,
+      "Target Benchmark": s.targetScore,
+      delta: s.delta,
+    }));
+  }, [skillsProgress]);
 
-    if (
-      file.type !== "application/pdf" &&
-      !file.name.toLowerCase().endsWith(".pdf")
-    ) {
-      toast.error(
-        "Please upload a PDF file only."
-      );
-      return;
+  // Chart data: Distribution Pie Chart
+  const pieDistributionData = useMemo(() => {
+    const mastered = skillsProgress.filter((s) => s.isMastered).length;
+    const improved = skillsProgress.filter((s) => s.isImproved && !s.isMastered).length;
+    const baseline = skillsProgress.filter((s) => !s.isImproved && !s.isMastered).length;
+
+    const res = [];
+    if (mastered > 0) res.push({ name: "Benchmark Met (Mastered)", value: mastered, color: "#10B981" });
+    if (improved > 0) res.push({ name: "Improved (After Learning)", value: improved, color: "#3B82F6" });
+    if (baseline > 0) res.push({ name: "Baseline / Practice Needed", value: baseline, color: "#F59E0B" });
+
+    if (res.length === 0) {
+      res.push({ name: "Assessments Pending", value: 1, color: "#94A3B8" });
     }
+    return res;
+  }, [skillsProgress]);
 
-    setSelectedFile(file);
-
-    toast.success(
-      `${file.name} selected`
-    );
-  };
-
-  const handleFileInput = (event) => {
-    const file =
-      event.target.files?.[0];
-
-    handleFile(file);
-  };
-
-  const handleDrop = (event) => {
-    event.preventDefault();
-
-    setIsDragging(false);
-
-    const file =
-      event.dataTransfer.files?.[0];
-
-    handleFile(file);
-  };
-
-  /* ============================================================
-     GENERATE PERSONALIZED LEARNING PATH
-  ============================================================ */
-
-  const generateLearningPath = async () => {
-    if (!selectedFile) {
-      toast.error(
-        "Please upload a PDF first."
-      );
-      return;
-    }
-
-    if (
-      !selectedFile.name
-        .toLowerCase()
-        .endsWith(".pdf")
-    ) {
-      toast.error(
-        "Only PDF files are supported."
-      );
-      return;
-    }
-
-    const formData = new FormData();
-
-    formData.append(
-      "file",
-      selectedFile
-    );
-
-    formData.append(
-      "role",
-      role
-    );
-
-    formData.append(
-      "assessment_score",
-      String(
-        Math.max(
-          0,
-          Math.min(100, assessmentScore)
-        )
-      )
-    );
-
-    formData.append(
-      "quiz_accuracy",
-      String(
-        Math.max(
-          0,
-          Math.min(100, quizAccuracy)
-        )
-      )
-    );
-
-    formData.append(
-      "years_experience",
-      String(
-        Math.max(
-          0,
-          yearsExperience
-        )
-      )
-    );
-
-    formData.append(
-      "learning_goal",
-      learningGoal
-    );
-
-    try {
-      setIsGenerating(true);
-
-      const response = await fetch(
-        `${API}/personalized-learning-path`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.detail ||
-            data?.message ||
-            "Server error while generating learning path."
-        );
+  // Filtered Course Catalog (68 genuine courses)
+  const filteredCourses = useMemo(() => {
+    return COURSES_CATALOG.filter((c) => {
+      if (courseSkillFilter !== "all") {
+        const matchesSkill =
+          matchesSkillStrict(c.primary_skill, courseSkillFilter) ||
+          c.skills_addressed.some((s) => matchesSkillStrict(s, courseSkillFilter));
+        if (!matchesSkill) return false;
       }
 
-      if (!data?.success) {
-        throw new Error(
-          data?.message ||
-            data?.error ||
-            "Failed to generate personalized learning path."
-        );
+      if (coursePlatformFilter !== "all") {
+        const p = c.provider.toLowerCase();
+        if (coursePlatformFilter === "coursera" && !p.includes("coursera")) return false;
+        if (coursePlatformFilter === "kaggle" && !p.includes("kaggle")) return false;
+        if (coursePlatformFilter === "nptel" && !p.includes("nptel")) return false;
+        if (coursePlatformFilter === "edx" && !p.includes("edx") && !p.includes("harvard") && !p.includes("mit")) return false;
+        if (coursePlatformFilter === "freecodecamp" && !p.includes("freecodecamp")) return false;
+        if (coursePlatformFilter === "fastai" && !p.includes("fast")) return false;
+        if (coursePlatformFilter === "aws" && !p.includes("aws") && !p.includes("google") && !p.includes("cloud")) return false;
       }
 
-      const generatedPath =
-        data?.learning_path ||
-        data?.path ||
-        data?.result;
-
-      if (!generatedPath) {
-        throw new Error(
-          "The backend returned no learning path."
-        );
+      if (courseDifficultyFilter !== "all") {
+        if (!c.difficulty.toLowerCase().includes(courseDifficultyFilter.toLowerCase())) return false;
       }
 
-      setLearningPath(
-        generatedPath
-      );
+      if (courseCertOnly && !c.has_certificate) {
+        return false;
+      }
 
-      setGeneratedFilename(
-        data?.filename ||
-          selectedFile.name
-      );
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const inTitle = c.title.toLowerCase().includes(q);
+        const inInst = (c.institution || "").toLowerCase().includes(q);
+        const inInstr = (c.instructor || "").toLowerCase().includes(q);
+        const inOverview = (c.overview || "").toLowerCase().includes(q);
+        const inSkills = (c.skills_addressed || []).some((s) => s.toLowerCase().includes(q));
+        if (!inTitle && !inInst && !inInstr && !inOverview && !inSkills) return false;
+      }
 
-      toast.success(
-        "Personalized learning path generated!"
-      );
+      return true;
+    });
+  }, [searchQuery, courseSkillFilter, coursePlatformFilter, courseDifficultyFilter, courseCertOnly]);
 
-      setTimeout(() => {
-        document
-          .getElementById(
-            "learning-path-result"
-          )
-          ?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
-      }, 200);
-    } catch (error) {
-      console.error(
-        "Learning path error:",
-        error
-      );
-
-      toast.error(
-        error?.message ||
-          "Unable to generate learning path."
-      );
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleRetakeTest = (skillName) => {
+    navigate(`/assessments/codechef?skill=${encodeURIComponent(skillName)}`);
   };
 
-  /* ============================================================
-     RESET GENERATOR
-  ============================================================ */
-
-  const resetGenerator = () => {
-    setSelectedFile(null);
-    setLearningPath(null);
-    setGeneratedFilename("");
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+  const handleExploreCoursesForSkill = (skillName) => {
+    setCourseSkillFilter(skillName);
+    setActiveView("courses");
+    window.scrollTo({ top: 400, behavior: "smooth" });
   };
 
   return (
-    <div className="min-h-screen bg-[#fffdf5] text-[#172033]">
-      {/* ========================================================
-          NAVBAR
-      ======================================================== */}
+    <div className="min-h-screen bg-[#FBF8EF] text-[#172033]">
+      <Navbar dashboard={true} />
 
-      <header className="sticky top-0 z-50 border-b border-black/10 bg-[#172033] text-white shadow-lg">
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between px-5 py-3 lg:px-8">
-          <button
-            onClick={() =>
-              navigate("/dashboard")
-            }
-            className="flex items-center gap-3"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F6D76A] text-[#172033]">
-              <BrainCircuit size={21} />
-            </div>
+      {/* Hero Section */}
+      <section className="relative overflow-hidden border-b border-[#E8DAB2] bg-gradient-to-br from-[#172033] via-[#1E293B] to-[#253554] py-12 text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(#F6D76A_1px,transparent_1px)] [background-size:24px_24px] opacity-10" />
 
-            <div className="text-left">
-              <div className="text-lg font-black">
-                STATWISE AI
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-3 max-w-3xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1 text-xs font-bold text-[#F6D76A] backdrop-blur-md">
+                <Sparkles size={14} />
+                <span>Feature 6: Skill Development Progress Tracking</span>
               </div>
 
-              <div className="text-[9px] uppercase tracking-[0.18em] text-white/40">
-                Personalized Learning
-              </div>
+              <h1 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">
+                Learning & Competency Improvement Tracker
+              </h1>
+
+              <p className="text-xs sm:text-sm text-gray-300 leading-relaxed max-w-2xl">
+                Measure genuine skill growth from <strong className="text-white">Before Learning</strong> to <strong className="text-[#F6D76A]">After Learning</strong>. Reattempt skill evaluations to close gap deficits, monitor weekly learning activity, and unlock accredited industry certifications.
+              </p>
             </div>
-          </button>
 
-          <div className="hidden items-center gap-2 md:flex">
-            <button
-              onClick={() =>
-                navigate("/dashboard")
-              }
-              className="rounded-xl px-4 py-2 text-sm font-semibold text-white/60 hover:bg-white/10 hover:text-white"
-            >
-              Dashboard
-            </button>
-
-            <button
-              onClick={() =>
-                navigate("/skills")
-              }
-              className="rounded-xl px-4 py-2 text-sm font-semibold text-white/60 hover:bg-white/10 hover:text-white"
-            >
-              Skills
-            </button>
-
-            <button
-              onClick={() =>
-                navigate("/assessments")
-              }
-              className="rounded-xl px-4 py-2 text-sm font-semibold text-white/60 hover:bg-white/10 hover:text-white"
-            >
-              Assessments
-            </button>
-
-            <button
-              onClick={() =>
-                navigate("/tutor")
-              }
-              className="rounded-xl px-4 py-2 text-sm font-semibold text-white/60 hover:bg-white/10 hover:text-white"
-            >
-              AI Tutor
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* ========================================================
-          HERO
-      ======================================================== */}
-
-      <section className="relative overflow-hidden bg-[#172033]">
-        <motion.div
-          className="absolute -left-32 -top-20 h-80 w-80 rounded-full bg-[#F6D76A]/10 blur-3xl"
-          animate={{
-            x: [0, 70, 0],
-            y: [0, 30, 0],
-          }}
-          transition={{
-            duration: 9,
-            repeat: Infinity,
-          }}
-        />
-
-        <motion.div
-          className="absolute -right-32 bottom-0 h-96 w-96 rounded-full bg-white/5 blur-3xl"
-          animate={{
-            x: [0, -60, 0],
-            y: [0, -25, 0],
-          }}
-          transition={{
-            duration: 11,
-            repeat: Infinity,
-          }}
-        />
-
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.8) 1px, transparent 1px)",
-            backgroundSize: "45px 45px",
-          }}
-        />
-
-        <div className="relative mx-auto max-w-[1500px] px-5 py-12 lg:px-8 lg:py-16">
-          <div className="max-w-4xl">
-            <motion.div
-              initial={{
-                opacity: 0,
-                y: 15,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              className="inline-flex items-center gap-2 rounded-full border border-[#F6D76A]/20 bg-[#F6D76A]/10 px-4 py-2 text-xs font-black text-[#F6D76A]"
-            >
-              <Sparkles size={14} />
-              AI-PERSONALIZED LEARNING
-            </motion.div>
-
-            <motion.h1
-              initial={{
-                opacity: 0,
-                y: 20,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              transition={{
-                delay: 0.1,
-              }}
-              className="mt-5 text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl"
-            >
-              Upload a PDF.
-              <span className="block text-[#F6D76A]">
-                Get your learning path.
+            {/* Quick Summary Pill */}
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-white/15 bg-white/5 p-5 backdrop-blur-md text-center min-w-[220px]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#F6D76A]">
+                Average Competency Gain
               </span>
-            </motion.h1>
+              <p className="mt-1 text-3xl font-black text-white">
+                +{summary.averageImprovement}%
+              </p>
+              <p className="mt-0.5 text-[11px] text-gray-300">
+                Across {summary.improvedCount} Elevated Skill(s)
+              </p>
+              <button
+                onClick={() => navigate("/assessments")}
+                className="mt-3 flex items-center gap-1.5 rounded-xl bg-[#F6D76A] px-4 py-2 text-xs font-black text-[#172033] hover:bg-yellow-400 transition"
+              >
+                <Zap size={13} />
+                Take Next Skill Test
+              </button>
+            </div>
+          </div>
 
-            <motion.p
-              initial={{
-                opacity: 0,
-              }}
-              animate={{
-                opacity: 1,
-              }}
-              transition={{
-                delay: 0.25,
-              }}
-              className="mt-5 max-w-3xl text-base leading-7 text-white/55 sm:text-lg"
-            >
-              STATWISE AI analyzes your learning
-              material, identifies important
-              competencies, and creates a
-              personalized learning roadmap based
-              on your profile and performance.
-            </motion.p>
+          {/* Quick Metrics KPI Ribbon */}
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Skills Evaluated
+              </span>
+              <p className="mt-1 text-2xl font-black text-[#F6D76A]">
+                {summary.totalAssessed} Skills
+              </p>
+              <p className="text-[11px] text-gray-300">{summary.totalTestsTaken} Tests Logged</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Skills Improved (After Learning)
+              </span>
+              <p className="mt-1 text-2xl font-black text-emerald-400">
+                {summary.improvedCount} Elevated
+              </p>
+              <p className="text-[11px] text-gray-300">Verified by Reattempts</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Benchmark Met (Job Ready)
+              </span>
+              <p className="mt-1 text-2xl font-black text-blue-400">
+                {summary.masteredCount} Mastered
+              </p>
+              <p className="text-[11px] text-gray-300">Score &gt;= 80% Threshold</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Career Track Benchmark
+              </span>
+              <p className="mt-1 text-base font-black text-amber-300 truncate">
+                {summary.targetRoleTitle}
+              </p>
+              <p className="text-[11px] text-gray-300">{summary.loggedHours}h / week target</p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ========================================================
-          PDF GENERATOR
-      ======================================================== */}
-
-      {!learningPath && (
-        <section className="mx-auto max-w-[1500px] px-5 py-10 lg:px-8">
-          <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-            {/* PDF UPLOAD */}
-
-            <motion.div
-              initial={{
-                opacity: 0,
-                y: 25,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              className="rounded-[2rem] border border-black/8 bg-white p-6 shadow-xl lg:p-8"
+      {/* Main Content Area */}
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+        {/* Navigation View Switcher */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[#E8DAB2] pb-4">
+          <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-white border border-[#E8DAB2] shadow-xs">
+            <button
+              onClick={() => setActiveView("progress")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+                activeView === "progress"
+                  ? "bg-[#172033] text-white shadow-xs"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              }`}
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F6D76A]/30">
-                  <UploadCloud size={23} />
-                </div>
+              <TrendingUp size={14} className={activeView === "progress" ? "text-[#F6D76A]" : ""} />
+              <span>📈 Skill Progress & Improvement Tracking</span>
+            </button>
 
-                <div>
-                  <div className="text-xs font-black uppercase tracking-wider text-gray-400">
-                    Step 1
-                  </div>
-
-                  <h2 className="text-2xl font-black">
-                    Upload learning material
-                  </h2>
-                </div>
-              </div>
-
-              <p className="mt-2 text-sm leading-6 text-gray-500">
-                Upload the PDF you want STATWISE AI
-                to analyze and convert into a
-                personalized learning journey.
-              </p>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={handleFileInput}
-                className="hidden"
-              />
-
-              <motion.div
-                whileHover={{
-                  scale: 1.01,
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragLeave={() =>
-                  setIsDragging(false)
-                }
-                onDrop={handleDrop}
-                onClick={() =>
-                  fileInputRef.current?.click()
-                }
-                className={`mt-7 cursor-pointer rounded-3xl border-2 border-dashed p-10 text-center transition ${
-                  isDragging
-                    ? "border-[#F6D76A] bg-[#F6D76A]/10"
-                    : "border-black/10 bg-[#fffdf5] hover:border-black/20"
-                }`}
-              >
-                <motion.div
-                  animate={{
-                    y: [0, -5, 0],
-                  }}
-                  transition={{
-                    duration: 2.5,
-                    repeat: Infinity,
-                  }}
-                  className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-[#172033] text-[#F6D76A]"
-                >
-                  <FileText size={35} />
-                </motion.div>
-
-                <h3 className="mt-5 text-lg font-black">
-                  {selectedFile
-                    ? "PDF ready for analysis"
-                    : "Drop your PDF here"}
-                </h3>
-
-                <p className="mt-2 text-sm text-gray-400">
-                  {selectedFile
-                    ? selectedFile.name
-                    : "or click to browse from your computer"}
-                </p>
-
-                <div className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#F6D76A] px-5 py-3 text-sm font-black text-[#172033]">
-                  <UploadCloud size={17} />
-                  {selectedFile
-                    ? "Change PDF"
-                    : "Choose PDF"}
-                </div>
-
-                <div className="mt-4 text-[11px] font-semibold text-gray-400">
-                  PDF files only
-                </div>
-              </motion.div>
-
-              {selectedFile && (
-                <motion.div
-                  initial={{
-                    opacity: 0,
-                    y: 10,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  className="mt-5 flex items-center gap-3 rounded-2xl bg-[#172033] p-4 text-white"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F6D76A] text-[#172033]">
-                    <FileText size={18} />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-black">
-                      {selectedFile.name}
-                    </div>
-
-                    <div className="mt-1 text-[11px] text-white/40">
-                      {(
-                        selectedFile.size /
-                        1024 /
-                        1024
-                      ).toFixed(2)}{" "}
-                      MB
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setSelectedFile(null);
-
-                      if (
-                        fileInputRef.current
-                      ) {
-                        fileInputRef.current.value =
-                          "";
-                      }
-                    }}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20"
-                  >
-                    <X size={17} />
-                  </button>
-                </motion.div>
-              )}
-            </motion.div>
-
-            {/* PROFILE */}
-
-            <motion.div
-              initial={{
-                opacity: 0,
-                y: 25,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              transition={{
-                delay: 0.1,
-              }}
-              className="rounded-[2rem] border border-black/8 bg-white p-6 shadow-xl lg:p-8"
+            <button
+              onClick={() => setActiveView("courses")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+                activeView === "courses"
+                  ? "bg-[#172033] text-white shadow-xs"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              }`}
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F6D76A]/30">
-                  <Target size={23} />
-                </div>
+              <BookOpen size={14} className={activeView === "courses" ? "text-[#F6D76A]" : ""} />
+              <span>🎓 Curated Courses & Certifications ({COURSES_CATALOG.length})</span>
+            </button>
 
-                <div>
-                  <div className="text-xs font-black uppercase tracking-wider text-gray-400">
-                    Step 2
-                  </div>
-
-                  <h2 className="text-2xl font-black">
-                    Your learning profile
-                  </h2>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-5">
-                {/* ROLE */}
-
-                <div>
-                  <label className="mb-2 block text-xs font-black uppercase tracking-wider text-gray-400">
-                    Role
-                  </label>
-
-                  <select
-                    value={role}
-                    onChange={(event) =>
-                      setRole(event.target.value)
-                    }
-                    className="w-full rounded-xl border border-black/10 bg-[#fffdf5] px-4 py-3 text-sm font-semibold outline-none focus:border-[#F6D76A]"
-                  >
-                    <option>
-                      Statistical Officer
-                    </option>
-
-                    <option>
-                      Data Analyst
-                    </option>
-
-                    <option>
-                      Research Officer
-                    </option>
-                  </select>
-                </div>
-
-                {/* ASSESSMENT */}
-
-                <div>
-                  <div className="mb-2 flex justify-between">
-                    <label className="text-xs font-black uppercase tracking-wider text-gray-400">
-                      Assessment Score
-                    </label>
-
-                    <span className="font-black">
-                      {assessmentScore}%
-                    </span>
-                  </div>
-
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={assessmentScore}
-                    onChange={(event) =>
-                      setAssessmentScore(
-                        Number(
-                          event.target.value
-                        )
-                      )
-                    }
-                    className="w-full accent-[#172033]"
-                  />
-                </div>
-
-                {/* QUIZ */}
-
-                <div>
-                  <div className="mb-2 flex justify-between">
-                    <label className="text-xs font-black uppercase tracking-wider text-gray-400">
-                      Quiz Accuracy
-                    </label>
-
-                    <span className="font-black">
-                      {quizAccuracy}%
-                    </span>
-                  </div>
-
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={quizAccuracy}
-                    onChange={(event) =>
-                      setQuizAccuracy(
-                        Number(
-                          event.target.value
-                        )
-                      )
-                    }
-                    className="w-full accent-[#172033]"
-                  />
-                </div>
-
-                {/* EXPERIENCE */}
-
-                <div>
-                  <label className="mb-2 block text-xs font-black uppercase tracking-wider text-gray-400">
-                    Years of Experience
-                  </label>
-
-                  <input
-                    type="number"
-                    min="0"
-                    max="50"
-                    value={yearsExperience}
-                    onChange={(event) =>
-                      setYearsExperience(
-                        Number(
-                          event.target.value
-                        )
-                      )
-                    }
-                    className="w-full rounded-xl border border-black/10 bg-[#fffdf5] px-4 py-3 text-sm font-semibold outline-none focus:border-[#F6D76A]"
-                  />
-                </div>
-
-                {/* GOAL */}
-
-                <div>
-                  <label className="mb-2 block text-xs font-black uppercase tracking-wider text-gray-400">
-                    Learning Goal
-                  </label>
-
-                  <textarea
-                    value={learningGoal}
-                    onChange={(event) =>
-                      setLearningGoal(
-                        event.target.value
-                      )
-                    }
-                    rows={3}
-                    className="w-full resize-none rounded-xl border border-black/10 bg-[#fffdf5] px-4 py-3 text-sm leading-6 outline-none focus:border-[#F6D76A]"
-                  />
-                </div>
-
-                {/* GENERATE */}
-
-                <motion.button
-                  whileHover={{
-                    scale: 1.02,
-                  }}
-                  whileTap={{
-                    scale: 0.98,
-                  }}
-                  onClick={
-                    generateLearningPath
-                  }
-                  disabled={
-                    isGenerating ||
-                    !selectedFile
-                  }
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#172033] py-4 text-sm font-black text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Sparkles size={18} />
-
-                  {selectedFile
-                    ? "Generate Personalized Learning Path"
-                    : "Upload PDF to Continue"}
-
-                  <ArrowRight size={17} />
-                </motion.button>
-              </div>
-            </motion.div>
+            <button
+              onClick={() => setActiveView("history")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+                activeView === "history"
+                  ? "bg-[#172033] text-white shadow-xs"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              }`}
+            >
+              <Clock3 size={14} className={activeView === "history" ? "text-[#F6D76A]" : ""} />
+              <span>📋 Assessment Attempts ({studentData.assessmentHistory?.length || 0})</span>
+            </button>
           </div>
-        </section>
-      )}
 
-      {/* ========================================================
-          GENERATED PATH
-      ======================================================== */}
-
-      {learningPath && (
-        <div id="learning-path-result">
-          <LearningPathResult
-            path={learningPath}
-            filename={generatedFilename}
-            onReset={resetGenerator}
-          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate("/assessments/codechef?skill=Java")}
+              className="flex items-center gap-1.5 rounded-xl border border-[#172033] bg-white px-3 py-1.5 text-xs font-bold text-[#172033] hover:bg-gray-50 transition"
+            >
+              <Zap size={13} className="text-[#9A6900]" />
+              Test Java
+            </button>
+            <button
+              onClick={() => navigate("/assessments/codechef?skill=Machine%20Learning")}
+              className="flex items-center gap-1.5 rounded-xl border border-[#172033] bg-white px-3 py-1.5 text-xs font-bold text-[#172033] hover:bg-gray-50 transition"
+            >
+              <Brain size={13} className="text-[#9A6900]" />
+              Test ML
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* ========================================================
-          SKILL + COURSE LIBRARY
-      ======================================================== */}
-
-      {!learningPath && (
-        <>
-          {/* STATS */}
-
-          <section className="mx-auto -mt-6 max-w-[1500px] px-5 lg:px-8">
-            <div className="grid overflow-hidden rounded-3xl border border-black/8 bg-white shadow-xl sm:grid-cols-3">
-              {[
-                {
-                  icon: BookOpen,
-                  value: courses.length,
-                  title: "Courses available",
-                },
-                {
-                  icon: Target,
-                  value: prioritySkills.length,
-                  title: "Priority skill areas",
-                },
-                {
-                  icon: TrendingUp,
-                  value: "AI",
-                  title: "Recommendation engine",
-                },
-              ].map(
-                (stat, index) => {
-                  const Icon =
-                    stat.icon;
-
-                  return (
-                    <motion.div
-                      key={stat.title}
-                      initial={{
-                        opacity: 0,
-                        y: 10,
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                      }}
-                      transition={{
-                        delay:
-                          0.2 +
-                          index * 0.1,
-                      }}
-                      className="flex items-center gap-4 border-b border-black/5 p-5 last:border-0 sm:border-b-0 sm:border-r sm:last:border-r-0"
-                    >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F6D76A]/25">
-                        <Icon size={20} />
-                      </div>
-
+        {/* ============================================================
+           VIEW 1: SKILL DEVELOPMENT PROGRESS TRACKING (BEFORE VS. AFTER)
+           ============================================================ */}
+        {activeView === "progress" && (
+          <div className="space-y-8">
+            {skillsProgress.length === 0 ? (
+              <div className="rounded-3xl border border-gray-200 bg-white p-12 text-center space-y-4 shadow-sm">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 text-2xl">
+                  🚀
+                </div>
+                <h3 className="text-xl font-black text-[#172033]">
+                  No Assessment Progress Recorded Yet
+                </h3>
+                <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+                  Take your first CodeChef 20-question skill test (e.g. Java, Python, Machine Learning, or SQL). When you reattempt the test after studying, your before-and-after skill improvement graph will appear here automatically!
+                </p>
+                <div className="flex flex-wrap justify-center gap-3 pt-2">
+                  <button
+                    onClick={() => navigate("/assessments/codechef?skill=Java")}
+                    className="flex items-center gap-2 rounded-xl bg-[#172033] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#253554] shadow-xs"
+                  >
+                    <span>Start Java Assessment</span>
+                    <ArrowRight size={13} className="text-[#F6D76A]" />
+                  </button>
+                  <button
+                    onClick={() => navigate("/assessments/codechef?skill=Machine%20Learning")}
+                    className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                  >
+                    <span>Start Machine Learning Assessment</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* CHARTS ROW: Dual Bar Chart & Donut Chart */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Visual 1: Dual Bar Chart - Before Learning vs. After Learning */}
+                  <div className="lg:col-span-2 rounded-3xl border border-[#E8DAB2] bg-white p-6 shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-100 pb-3">
                       <div>
-                        <div className="text-2xl font-black">
-                          {stat.value}
-                        </div>
-
-                        <div className="text-xs text-gray-400">
-                          {stat.title}
-                        </div>
+                        <h3 className="text-base font-black text-[#172033] flex items-center gap-2">
+                          <BarChart3 size={16} className="text-[#9A6900]" />
+                          Skill Improvement: Before Learning vs. After Learning
+                        </h3>
+                        <p className="text-[11px] text-gray-500">
+                          Comparing initial assessment diagnostic vs. latest verified score across reattempts.
+                        </p>
                       </div>
-                    </motion.div>
-                  );
-                }
-              )}
-            </div>
-          </section>
 
-          {/* PRIORITY SKILLS */}
-
-          {prioritySkills.length >
-            0 && (
-            <section className="mx-auto max-w-[1500px] px-5 pt-12 lg:px-8">
-              <div className="rounded-[2rem] border border-black/8 bg-white p-6 shadow-sm lg:p-8">
-                <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-                  <div>
-                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.15em] text-[#172033]/40">
-                      <Target size={15} />
-                      AI Skill Gap Analysis
+                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                        Avg +{summary.averageImprovement}% Score Delta
+                      </span>
                     </div>
 
-                    <h2 className="mt-2 text-2xl font-black">
-                      Learning priorities for you
-                    </h2>
+                    <div className="h-72 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={dualBarData}
+                          margin={{ top: 20, right: 20, left: -10, bottom: 20 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                          <XAxis
+                            dataKey="name"
+                            tick={{ fontSize: 11, fill: "#475569", fontWeight: 600 }}
+                            axisLine={{ stroke: "#CBD5E1" }}
+                          />
+                          <YAxis
+                            domain={[0, 100]}
+                            tick={{ fontSize: 10, fill: "#64748B" }}
+                            axisLine={{ stroke: "#CBD5E1" }}
+                          />
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload;
+                                return (
+                                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-lg text-xs space-y-1">
+                                    <p className="font-bold text-[#172033]">{data.fullName}</p>
+                                    <p className="text-amber-700">
+                                      Before Learning: <strong>{data["Before Learning"]}%</strong>
+                                    </p>
+                                    <p className="text-emerald-700">
+                                      After Learning: <strong>{data["After Learning"]}%</strong>
+                                    </p>
+                                    <p className="text-gray-500">
+                                      Target Benchmark: <strong>{data["Target Benchmark"]}%</strong>
+                                    </p>
+                                    {data.delta > 0 && (
+                                      <p className="text-emerald-600 font-black pt-1 border-t border-gray-100">
+                                        🚀 Improvement: +{data.delta}% Competency Gain
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+                          <Bar
+                            dataKey="Before Learning"
+                            fill="#CBD5E1"
+                            radius={[6, 6, 0, 0]}
+                            name="Before Learning (Initial Attempt)"
+                          />
+                          <Bar
+                            dataKey="After Learning"
+                            fill="#10B981"
+                            radius={[6, 6, 0, 0]}
+                            name="After Learning (Latest Verified Score)"
+                          />
+                          <Bar
+                            dataKey="Target Benchmark"
+                            fill="#172033"
+                            radius={[6, 6, 0, 0]}
+                            name="Target Industry Benchmark"
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
 
-                    <p className="mt-1 text-sm text-gray-500">
-                      These areas have the largest gap between your current competency and target.
+                  {/* Visual 2: Donut Chart - Competency Breakdown */}
+                  <div className="rounded-3xl border border-[#E8DAB2] bg-white p-6 shadow-sm space-y-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+                        <PieIcon size={16} className="text-[#9A6900]" />
+                        <h3 className="text-base font-black text-[#172033]">
+                          Skill Mastery Status
+                        </h3>
+                      </div>
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        Proportion of tested competencies meeting industry hiring standards.
+                      </p>
+
+                      <div className="h-52 w-full mt-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={pieDistributionData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={50}
+                              outerRadius={75}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {pieDistributionData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(value, name) => [`${value} Skill(s)`, name]}
+                              contentStyle={{ borderRadius: "12px", fontSize: "11px" }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Pie Legend Details */}
+                      <div className="space-y-1.5 mt-2">
+                        {pieDistributionData.map((entry, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-2 text-gray-700">
+                              <span
+                                className="h-2.5 w-2.5 rounded-full inline-block"
+                                style={{ backgroundColor: entry.color }}
+                              />
+                              <span className="text-[11px] font-medium">{entry.name}</span>
+                            </span>
+                            <span className="font-bold text-[#172033]">{entry.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-amber-50/70 border border-amber-200/70 p-3 text-center text-xs">
+                      <p className="font-bold text-amber-950">
+                        {summary.masteredCount} of {summary.totalAssessed} Skills Job Ready
+                      </p>
+                      <p className="text-[10px] text-gray-600 mt-0.5">
+                        Closing remaining gaps achieves 100% role alignment.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SKILL PROGRESS CARDS: Before vs. After Detailed Breakdown */}
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <h3 className="text-xl font-black text-[#172033] flex items-center gap-2">
+                        <Target size={18} className="text-[#9A6900]" />
+                        Individual Skill Progress & Reattempt Records
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        Track baseline scores, reattempt gains, and remaining point deficits for every assessed technology.
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-500 font-semibold">
+                      Showing {skillsProgress.length} Evaluated Skill(s)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {skillsProgress.map((item, idx) => {
+                      const isMastered = item.isMastered;
+                      const hasImproved = item.isImproved;
+
+                      return (
+                        <motion.div
+                          key={item.skill}
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className={`rounded-3xl border p-6 shadow-sm transition hover:shadow-md flex flex-col justify-between ${
+                            isMastered
+                              ? "border-emerald-200 bg-emerald-50/20"
+                              : hasImproved
+                              ? "border-blue-200 bg-blue-50/20"
+                              : "border-gray-200 bg-white"
+                          }`}
+                        >
+                          <div>
+                            {/* Card Header: Skill Name & Delta Badge */}
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                              <div>
+                                <h4 className="text-lg font-black text-[#172033]">
+                                  {item.skill}
+                                </h4>
+                                <span className="text-[11px] font-semibold text-gray-400">
+                                  {item.category} • {item.attemptsCount} Attempt{item.attemptsCount > 1 ? "s" : ""}
+                                </span>
+                              </div>
+
+                              {hasImproved ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-3 py-1 text-xs font-black text-emerald-800">
+                                  <TrendingUp size={13} />
+                                  +{item.delta}% Improvement
+                                </span>
+                              ) : (
+                                <span className="rounded-full bg-gray-100 border border-gray-200 px-3 py-1 text-xs font-bold text-gray-600">
+                                  Baseline Established
+                                </span>
+                              )}
+                            </div>
+
+                            {/* 3 Metrics: Before Learning, After Learning, Target Benchmark */}
+                            <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-white p-3.5 text-center border border-gray-100">
+                              <div className="border-r border-gray-100 pr-2">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase">
+                                  Before Learning
+                                </p>
+                                <p className="mt-0.5 text-lg font-black text-gray-600">
+                                  {item.beforeScore}%
+                                </p>
+                                <p className="text-[9px] text-gray-400">First Diagnostic</p>
+                              </div>
+
+                              <div className="border-r border-gray-100 px-2">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase">
+                                  After Learning
+                                </p>
+                                <p className="mt-0.5 text-lg font-black text-emerald-600">
+                                  {item.afterScore}%
+                                </p>
+                                <p className="text-[9px] text-gray-400">Latest Verified</p>
+                              </div>
+
+                              <div className="pl-2">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase">
+                                  Target Benchmark
+                                </p>
+                                <p className="mt-0.5 text-lg font-black text-[#172033]">
+                                  {item.targetScore}%
+                                </p>
+                                <p className="text-[9px] text-gray-400">Industry Standard</p>
+                              </div>
+                            </div>
+
+                            {/* Visual Progress Bar: Before vs After Fill */}
+                            <div className="mt-4 space-y-1.5">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="text-gray-500 font-semibold">Competency Fill:</span>
+                                <span className="font-bold text-[#172033]">
+                                  {item.remainingGap > 0
+                                    ? `-${item.remainingGap}% Deficit Remaining`
+                                    : "✓ 100% Benchmark Met"}
+                                </span>
+                              </div>
+
+                              <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-100">
+                                {/* Before Learning Marker */}
+                                <div
+                                  style={{ width: `${item.beforeScore}%` }}
+                                  className="absolute top-0 bottom-0 left-0 bg-gray-300 opacity-60 z-10"
+                                />
+                                {/* After Learning Fill */}
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${item.afterScore}%` }}
+                                  transition={{ duration: 0.8 }}
+                                  className={`h-full rounded-full ${
+                                    isMastered
+                                      ? "bg-emerald-500"
+                                      : hasImproved
+                                      ? "bg-blue-600"
+                                      : "bg-amber-500"
+                                  }`}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Attempt Timeline Pill */}
+                            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10px] font-medium text-gray-500">
+                              <span>History:</span>
+                              {item.history.map((h, hIdx) => (
+                                <span
+                                  key={hIdx}
+                                  className="rounded-md bg-white border border-gray-200 px-2 py-0.5 font-bold text-gray-700"
+                                >
+                                  #{h.attempt}: {h.score}%
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Card Footer: Action Buttons */}
+                          <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-3">
+                            <button
+                              onClick={() => handleExploreCoursesForSkill(item.skill)}
+                              className="text-xs font-bold text-[#9A6900] hover:text-[#172033] flex items-center gap-1"
+                            >
+                              <BookOpen size={13} />
+                              <span>View Recommended Courses</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleRetakeTest(item.skill)}
+                              className="flex items-center gap-1.5 rounded-xl bg-[#172033] px-3.5 py-1.5 text-xs font-bold text-white hover:bg-[#253554] shadow-2xs transition"
+                            >
+                              <RotateCcw size={12} className="text-[#F6D76A]" />
+                              <span>Reattempt Test</span>
+                            </button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* BOTTOM ROW: Weekly Activity & Learning Tasks */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Weekly Learning Activity Tracker */}
+                  <div className="rounded-3xl border border-[#E8DAB2] bg-white p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Flame size={16} className="text-amber-500 fill-amber-500" />
+                        <h4 className="text-base font-black text-[#172033]">
+                          Weekly Learning & Practice Activity
+                        </h4>
+                      </div>
+                      <span className="text-[11px] font-bold text-amber-900 bg-amber-100/70 px-2.5 py-0.5 rounded-full">
+                        🔥 Active Practice Streak
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-500">
+                      Weekly study hours logged and test submissions across the last 7 days.
+                    </p>
+
+                    <div className="grid grid-cols-7 gap-2 pt-2 text-center">
+                      {weeklyActivity.map((d, dIdx) => {
+                        const hasTests = d.testsCompleted > 0;
+                        return (
+                          <div
+                            key={dIdx}
+                            className={`rounded-2xl p-2.5 border transition ${
+                              hasTests
+                                ? "border-emerald-300 bg-emerald-50/80 ring-2 ring-emerald-500/20"
+                                : "border-gray-200 bg-gray-50/50"
+                            }`}
+                          >
+                            <p className="text-[10px] font-bold text-gray-500">{d.day}</p>
+                            <p className="mt-1 text-base font-black text-[#172033]">
+                              {d.studyHours}h
+                            </p>
+                            <p className="text-[9px] text-gray-400 mt-0.5">
+                              {d.testsCompleted > 0 ? `${d.testsCompleted} test(s)` : "Study"}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Completed and Pending Learning Tasks */}
+                  <div className="rounded-3xl border border-[#E8DAB2] bg-white p-6 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                        <h4 className="text-base font-black text-[#172033]">
+                          Completed & Pending Learning Tasks
+                        </h4>
+                      </div>
+                      <span className="text-[11px] font-bold text-gray-500">
+                        {learningTasks.filter((t) => t.completed).length} of {learningTasks.length} Completed
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {learningTasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className={`flex items-start gap-3 rounded-2xl p-3 border text-xs transition ${
+                            task.completed
+                              ? "border-emerald-200 bg-emerald-50/30 text-gray-800"
+                              : "border-gray-200 bg-white text-gray-500"
+                          }`}
+                        >
+                          <div
+                            className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                              task.completed
+                                ? "bg-emerald-500 text-white"
+                                : "border border-gray-300 bg-white"
+                            }`}
+                          >
+                            {task.completed && <CheckCircle2 size={12} />}
+                          </div>
+
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p
+                                className={`font-bold ${
+                                  task.completed ? "text-gray-900" : "text-gray-600"
+                                }`}
+                              >
+                                {task.title}
+                              </p>
+                              <span
+                                className={`rounded-md px-2 py-0.2 text-[10px] font-bold ${
+                                  task.completed
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-gray-100 text-gray-500"
+                                }`}
+                              >
+                                {task.badge}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-gray-500 leading-snug">
+                              {task.description}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ============================================================
+           VIEW 2: ACCREDITED COURSES & CERTIFICATIONS (68 REAL COURSES)
+           ============================================================ */}
+        {activeView === "courses" && (
+          <div className="space-y-6">
+            {/* Header & Filter Controls */}
+            <div className="rounded-3xl border border-[#EAD8A6] bg-gradient-to-br from-white via-[#FFFDF5] to-[#FBF8EF] p-6 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-black text-[#172033] flex items-center gap-2">
+                    <BookOpen size={18} className="text-[#9A6900]" />
+                    Accredited Course & Certification Catalog
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    68 verified courses from Duke, University of Helsinki, NPTEL, Coursera, Harvard, edX, Kaggle, and AWS.
+                  </p>
+                </div>
+
+                <span className="text-xs font-bold text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-xl">
+                  Showing {filteredCourses.length} Offerings
+                </span>
+              </div>
+
+              {/* Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div className="relative sm:col-span-2">
+                  <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search courses by keyword, instructor, university (e.g. Java, Andrew Ng, Duke)..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-xs text-[#172033] outline-none focus:border-[#172033] shadow-2xs"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    checked={courseCertOnly}
+                    onChange={(e) => setCourseCertOnly(e.target.checked)}
+                    className="rounded border-gray-300 text-[#172033] focus:ring-0"
+                  />
+                  <span>🎓 Official Certificate Only</span>
+                </label>
+              </div>
+
+              {/* Skill Filter Pills */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-gray-100">
+                <span className="text-[11px] font-bold text-gray-400 mr-1">Skill Filter:</span>
+                {["all", "Java", "Python", "Machine Learning", "Data Structures & Algorithms", "SQL & Databases", "Deep Learning & Neural Networks"].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setCourseSkillFilter(s)}
+                    className={`rounded-xl px-3 py-1 text-xs font-bold transition ${
+                      courseSkillFilter === s
+                        ? "bg-[#172033] text-white shadow-xs"
+                        : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {s === "all" ? "All Skills" : s}
+                  </button>
+                ))}
+              </div>
+
+              {/* Platform Pills */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+                <span className="text-[11px] font-bold text-gray-400 mr-1">Platform:</span>
+                {[
+                  { id: "all", label: "All Platforms" },
+                  { id: "coursera", label: "Coursera" },
+                  { id: "kaggle", label: "Kaggle" },
+                  { id: "nptel", label: "NPTEL / IIT" },
+                  { id: "edx", label: "edX / Harvard" },
+                  { id: "freecodecamp", label: "freeCodeCamp" },
+                  { id: "fastai", label: "fast.ai" },
+                  { id: "aws", label: "Cloud / AWS" }
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setCoursePlatformFilter(p.id)}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
+                      coursePlatformFilter === p.id
+                        ? "bg-[#172033] text-white"
+                        : "bg-white border border-gray-200 text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Courses Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredCourses.map((c, idx) => (
+                <div
+                  key={c.id}
+                  className="flex flex-col justify-between rounded-3xl border border-[#E8DAB2] bg-white p-6 shadow-sm hover:shadow-md transition"
+                >
+                  <div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                      <span className="text-xs font-black text-[#172033] flex items-center gap-1.5">
+                        <span
+                          style={{ backgroundColor: c.icon_bg }}
+                          className="h-2.5 w-2.5 rounded-full inline-block"
+                        />
+                        {c.provider}
+                      </span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase">
+                        {c.duration_type}
+                      </span>
+                    </div>
+
+                    <div className="mt-3">
+                      <span className="rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-800">
+                        Primary: {c.primary_skill}
+                      </span>
+                    </div>
+
+                    <h4 className="mt-2 text-base font-black text-[#172033] line-clamp-2">
+                      {c.title}
+                    </h4>
+
+                    <p className="mt-1 text-xs text-gray-500 font-medium">
+                      {c.institution} {c.instructor && `• ${c.instructor}`}
+                    </p>
+
+                    {/* Criteria Pills */}
+                    <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-bold">
+                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-gray-700">
+                        ⚡ {c.difficulty}
+                      </span>
+                      <span className="rounded-md bg-gray-100 px-2 py-0.5 text-gray-700">
+                        ⏱️ {c.duration}
+                      </span>
+                      {c.has_certificate && (
+                        <span className="rounded-md bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5">
+                          📜 {c.badge_name || "Verified"}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-3 text-[11px] text-gray-600 leading-relaxed line-clamp-3">
+                      {c.overview}
                     </p>
                   </div>
 
-                  <button
-                    onClick={() =>
-                      navigate("/skills")
-                    }
-                    className="flex items-center gap-2 text-sm font-black"
-                  >
-                    View skill intelligence
-                    <ArrowRight size={16} />
-                  </button>
+                  {/* Footer & CTA */}
+                  <div className="mt-5 border-t border-gray-100 pt-3 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1 font-bold text-[#172033]">
+                      <Star size={12} className="fill-amber-400 text-amber-400" />
+                      <span>{c.rating}</span>
+                      <span className="text-gray-400 font-normal">({c.learners})</span>
+                    </div>
+
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 rounded-xl bg-[#172033] px-3.5 py-1.5 font-bold text-white hover:bg-[#253554] shadow-2xs transition"
+                    >
+                      <span>Start Course</span>
+                      <ExternalLink size={12} className="text-[#F6D76A]" />
+                    </a>
+                  </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-                <div className="mt-6 grid gap-4 md:grid-cols-3">
-                  {prioritySkills.map(
-                    (
-                      skill,
-                      index
-                    ) => (
-                      <motion.div
-                        key={
-                          skill.name
-                        }
-                        whileHover={{
-                          y: -4,
-                        }}
-                        className="rounded-2xl bg-[#fffdf5] p-5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-black">
-                            {skill.name}
-                          </span>
-
-                          <span className="rounded-full bg-red-50 px-2.5 py-1 text-[10px] font-black text-red-600">
-                            GAP{" "}
-                            {Math.round(
-                              skill.gap
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="mt-4 flex items-end justify-between">
-                          <div>
-                            <div className="text-2xl font-black">
-                              {Math.round(
-                                skill.current
-                              )}
-                              %
-                            </div>
-
-                            <div className="text-xs text-gray-400">
-                              Current
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <div className="text-2xl font-black">
-                              {Math.round(
-                                skill.target
-                              )}
-                              %
-                            </div>
-
-                            <div className="text-xs text-gray-400">
-                              Target
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                          <motion.div
-                            initial={{
-                              width: 0,
-                            }}
-                            whileInView={{
-                              width: `${Math.min(
-                                100,
-                                skill.target
-                              )}%`,
-                            }}
-                            viewport={{
-                              once: true,
-                            }}
-                            transition={{
-                              duration: 1,
-                              delay:
-                                index *
-                                0.1,
-                            }}
-                            className="h-full rounded-full bg-[#172033]"
-                          />
-                        </div>
-                      </motion.div>
-                    )
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* COURSES */}
-
-          <main className="mx-auto max-w-[1500px] px-5 py-12 lg:px-8">
-            <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+        {/* ============================================================
+           VIEW 3: ASSESSMENT HISTORY & REATTEMPT LOG
+           ============================================================ */}
+        {activeView === "history" && (
+          <div className="rounded-3xl border border-[#E8DAB2] bg-white p-6 sm:p-8 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
-                <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-[#172033]/40">
-                  <Sparkles size={16} />
-                  Recommended for you
-                </div>
-
-                <h2 className="mt-2 text-3xl font-black">
-                  Your AI learning ecosystem
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-500">
-                  Explore courses while STATWISE AI builds your personalized learning roadmap.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 rounded-xl bg-[#F6D76A]/25 px-4 py-3 text-sm font-bold">
-                <Zap size={16} />
-                AI optimized
-              </div>
-            </div>
-
-            <div className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {aiRecommendations.map(
-                (
-                  course,
-                  index
-                ) => (
-                  <CourseCard
-                    key={
-                      course?.id ||
-                      course?.course_id ||
-                      index
-                    }
-                    course={course}
-                    index={index}
-                    recommended
-                    onOpen={
-                      setSelectedCourse
-                    }
-                  />
-                )
-              )}
-            </div>
-
-            {/* ALL COURSES */}
-
-            <section className="mt-16">
-              <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-[#172033]/40">
-                    <BookOpen size={16} />
-                    Learning Library
-                  </div>
-
-                  <h2 className="mt-2 text-3xl font-black">
-                    Explore all courses
-                  </h2>
-                </div>
-
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                  <Filter
-                    size={17}
-                    className="shrink-0 text-gray-400"
-                  />
-
-                  {categories.map(
-                    (item) => (
-                      <button
-                        key={item}
-                        onClick={() =>
-                          setCategory(
-                            item
-                          )
-                        }
-                        className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-black transition ${
-                          category ===
-                          item
-                            ? "bg-[#172033] text-white"
-                            : "border border-black/8 bg-white text-gray-500 hover:bg-gray-50"
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    )
-                  )}
-                </div>
-              </div>
-
-              {/* SEARCH */}
-
-              <div className="mt-6 flex items-center rounded-2xl border border-black/8 bg-white p-2">
-                <Search
-                  size={19}
-                  className="ml-3 text-gray-400"
-                />
-
-                <input
-                  value={search}
-                  onChange={(event) =>
-                    setSearch(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Search courses..."
-                  className="w-full bg-transparent px-3 py-3 text-sm outline-none"
-                />
-              </div>
-
-              <div className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {filteredCourses.map(
-                  (
-                    course,
-                    index
-                  ) => (
-                    <CourseCard
-                      key={
-                        course?.id ||
-                        course?.course_id ||
-                        `course-${index}`
-                      }
-                      course={course}
-                      index={index}
-                      recommended={
-                        index < 3
-                      }
-                      onOpen={
-                        setSelectedCourse
-                      }
-                    />
-                  )
-                )}
-              </div>
-
-              {filteredCourses.length ===
-                0 && (
-                <div className="mt-7 rounded-3xl border border-dashed border-black/15 bg-white p-12 text-center">
-                  <Search
-                    className="mx-auto text-gray-300"
-                    size={40}
-                  />
-
-                  <h3 className="mt-4 text-xl font-black">
-                    No courses found
-                  </h3>
-
-                  <p className="mt-2 text-sm text-gray-500">
-                    Try another search term or category.
-                  </p>
-
-                  <button
-                    onClick={() => {
-                      setSearch("");
-                      setCategory(
-                        "All"
-                      );
-                    }}
-                    className="mt-5 rounded-xl bg-[#F6D76A] px-5 py-3 text-sm font-black"
-                  >
-                    Reset filters
-                  </button>
-                </div>
-              )}
-            </section>
-          </main>
-        </>
-      )}
-
-      {/* ========================================================
-          COURSE MODAL
-      ======================================================== */}
-
-      <AnimatePresence>
-        {selectedCourse && (
-          <motion.div
-            initial={{
-              opacity: 0,
-            }}
-            animate={{
-              opacity: 1,
-            }}
-            exit={{
-              opacity: 0,
-            }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-[#172033]/70 p-5 backdrop-blur-sm"
-            onClick={() =>
-              setSelectedCourse(null)
-            }
-          >
-            <motion.div
-              initial={{
-                opacity: 0,
-                scale: 0.92,
-                y: 20,
-              }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-                y: 0,
-              }}
-              exit={{
-                opacity: 0,
-                scale: 0.92,
-                y: 20,
-              }}
-              onClick={(event) =>
-                event.stopPropagation()
-              }
-              className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[2rem] bg-white shadow-2xl"
-            >
-              <div className="relative bg-[#172033] p-7 text-white">
-                <button
-                  onClick={() =>
-                    setSelectedCourse(
-                      null
-                    )
-                  }
-                  className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 transition hover:bg-white/20"
-                >
-                  <X size={18} />
-                </button>
-
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#F6D76A] text-[#172033]">
-                  <BookOpen size={25} />
-                </div>
-
-                <h2 className="mt-5 pr-10 text-3xl font-black">
-                  {text(
-                    selectedCourse?.title ||
-                      selectedCourse?.name,
-                    "Learning Course"
-                  )}
-                </h2>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold">
-                    {text(
-                      selectedCourse?.level,
-                      "Intermediate"
-                    )}
-                  </span>
-
-                  <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold">
-                    {text(
-                      selectedCourse?.duration,
-                      "Self-paced"
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-7">
-                <div className="flex items-center gap-3 rounded-2xl bg-[#F6D76A]/20 p-4">
-                  <Sparkles size={21} />
-
-                  <div>
-                    <div className="text-sm font-black">
-                      Why STATWISE AI recommends this
-                    </div>
-
-                    <div className="mt-1 text-xs leading-5 text-gray-500">
-                      This course is part of your personalized learning ecosystem and can help strengthen your professional competency.
-                    </div>
-                  </div>
-                </div>
-
-                <h3 className="mt-7 text-lg font-black">
-                  About this course
+                <h3 className="text-lg font-black text-[#172033] flex items-center gap-2">
+                  <Clock3 size={16} className="text-[#9A6900]" />
+                  Real Assessment Submission History
                 </h3>
-
-                <p className="mt-2 text-sm leading-7 text-gray-500">
-                  {text(
-                    selectedCourse?.description,
-                    "This learning resource is designed to build practical knowledge and improve competency."
-                  )}
+                <p className="text-xs text-gray-500">
+                  Every test taken in STATWISE AI is permanently tracked here with score percentage, questions breakdown, and date.
                 </p>
-
-                <div className="mt-7 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <Clock3 size={18} />
-
-                    <div className="mt-3 text-xs text-gray-400">
-                      Duration
-                    </div>
-
-                    <div className="mt-1 font-black">
-                      {text(
-                        selectedCourse?.duration,
-                        "Self-paced"
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <Target size={18} />
-
-                    <div className="mt-3 text-xs text-gray-400">
-                      Level
-                    </div>
-
-                    <div className="mt-1 font-black">
-                      {text(
-                        selectedCourse?.level,
-                        "Intermediate"
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl bg-gray-50 p-4">
-                    <CheckCircle2 size={18} />
-
-                    <div className="mt-3 text-xs text-gray-400">
-                      Format
-                    </div>
-
-                    <div className="mt-1 font-black">
-                      Online
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    toast.success(
-                      "Course started successfully."
-                    );
-
-                    setSelectedCourse(
-                      null
-                    );
-                  }}
-                  className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-[#172033] py-4 font-black text-white transition hover:bg-black"
-                >
-                  <Play
-                    size={17}
-                    fill="currentColor"
-                  />
-                  Start Learning
-                </button>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* ========================================================
-          GENERATION OVERLAY
-      ======================================================== */}
+              <span className="text-xs font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-lg">
+                {studentData.assessmentHistory?.length || 0} Total Tests
+              </span>
+            </div>
 
-      <AnimatePresence>
-        {isGenerating && (
-          <GenerationOverlay />
+            {(!studentData.assessmentHistory || studentData.assessmentHistory.length === 0) ? (
+              <div className="py-12 text-center text-gray-400 text-xs">
+                No assessments taken yet. Start a CodeChef test to see your history logged here!
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-[11px] font-black uppercase text-gray-400">
+                      <th className="py-3 px-3">Date & Time</th>
+                      <th className="py-3 px-3">Skill Tested</th>
+                      <th className="py-3 px-3">Test Code</th>
+                      <th className="py-3 px-3">Correct Answers</th>
+                      <th className="py-3 px-3">Score %</th>
+                      <th className="py-3 px-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {studentData.assessmentHistory.map((test, idx) => (
+                      <tr key={test.id || idx} className="hover:bg-gray-50/60 transition">
+                        <td className="py-3.5 px-3 text-gray-500 font-medium">
+                          {test.completed_at ? test.completed_at.replace("T", " ").slice(0, 16) : "Recent"}
+                        </td>
+                        <td className="py-3.5 px-3 font-bold text-[#172033]">
+                          {test.skill_name}
+                        </td>
+                        <td className="py-3.5 px-3 text-gray-400 font-mono text-[11px]">
+                          {test.test_code}
+                        </td>
+                        <td className="py-3.5 px-3 text-gray-700">
+                          {test.correct_count} / {test.total_questions || 20}
+                        </td>
+                        <td className="py-3.5 px-3">
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                              test.percentage >= 80
+                                ? "bg-emerald-100 text-emerald-800"
+                                : test.percentage >= 60
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-rose-100 text-rose-800"
+                            }`}
+                          >
+                            {test.percentage}%
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-3 text-right">
+                          <button
+                            onClick={() => handleRetakeTest(test.skill_name)}
+                            className="rounded-lg bg-[#172033] px-2.5 py-1 text-[11px] font-bold text-white hover:bg-[#253554] transition shadow-2xs"
+                          >
+                            Reattempt
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
-      </AnimatePresence>
+      </main>
+
+      <Footer />
     </div>
   );
 }

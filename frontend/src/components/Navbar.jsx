@@ -22,6 +22,10 @@ import {
   Presentation,
   Activity,
   Languages,
+  Award,
+  GraduationCap,
+  GitCompare,
+  Briefcase,
 } from "lucide-react";
 
 function Navbar({ dashboard = false }) {
@@ -73,37 +77,69 @@ function Navbar({ dashboard = false }) {
 
   const navItems = dashboard
     ? [
-        {
-          name: "Dashboard",
-          path: "/dashboard",
-        },
-        {
-          name: "Learning",
-          path: "/learning",
-        },
-        {
-          name: "Skills",
-          path: "/skills",
-        },
-        {
-          name: "Assessments",
-          path: "/assessments",
-        },
-        {
-          name: "AI Tutor",
-          path: "/tutor",
-        },
-        {
-          name: "Digital Twin",
-          path: "/digital-twin",
-        },
-      ]
+      {
+        name: "Dashboard",
+        path: "/dashboard",
+      },
+      {
+        name: "Roadmaps",
+        path: "/roadmaps",
+      },
+      {
+        name: "Skills & Gaps",
+        path: "/skills",
+      },
+      {
+        name: "Courses",
+        path: "/learning",
+      },
+      {
+        name: "Assessments",
+        path: "/assessments",
+      },
+      {
+        name: "Certifications",
+        path: "/certifications",
+      },
+      {
+        name: "Role Compare",
+        path: "/career-comparison",
+      },
+      {
+        name: "Profile",
+        path: "/profile",
+      },
+    ]
     : [
-        {
-          name: "Home",
-          path: "/",
-        },
-      ];
+      {
+        name: "Home",
+        path: "/",
+      },
+      {
+        name: "Dashboard",
+        path: "/dashboard",
+      },
+      {
+        name: "Roadmaps",
+        path: "/roadmaps",
+      },
+      {
+        name: "Skills & Gaps",
+        path: "/skills",
+      },
+      {
+        name: "Courses",
+        path: "/learning",
+      },
+      {
+        name: "Certifications",
+        path: "/certifications",
+      },
+      {
+        name: "Role Compare",
+        path: "/career-comparison",
+      },
+    ];
 
   // ============================================================
   // EXPLORE
@@ -111,10 +147,34 @@ function Navbar({ dashboard = false }) {
 
   const exploreItems = [
     {
-      title: "Learning Paths",
-      description: "Personalized courses for your role",
+      title: "Personalized Roadmaps",
+      description: "4-Phase step-by-step career milestone roadmaps",
+      icon: Target,
+      path: "/roadmaps",
+    },
+    {
+      title: "Career Role Comparison",
+      description: "Compare your skills against 15 industry technology roles",
+      icon: GitCompare,
+      path: "/career-comparison",
+    },
+    {
+      title: "Certifications & Achievements",
+      description: "Track verified credentials and earned badges",
+      icon: Award,
+      path: "/certifications",
+    },
+    {
+      title: "Learning & AI Courses",
+      description: "Personalized courses and credentials for your role",
       icon: BookOpen,
       path: "/learning",
+    },
+    {
+      title: "Personalized iGOT Learning",
+      description: "Get personalized role-based training and learning",
+      icon: BookOpen,
+      path: "/igot",
     },
     {
       title: "Skill Intelligence",
@@ -180,6 +240,13 @@ function Navbar({ dashboard = false }) {
       description:
         "Personalized learning recommendations",
       path: "/learning",
+      icon: BookOpen,
+    },
+    {
+      title: "iGOT Karmayogi",
+      description:
+        "Explore role-based training and competency learning",
+      path: "/igot",
       icon: BookOpen,
     },
     {
@@ -265,7 +332,7 @@ function Navbar({ dashboard = false }) {
         animate={{ y: 0, opacity: 1 }}
         className="bg-[#172033] text-white"
       >
-        <div className="mx-auto flex h-9 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-9 max-w-[1536px] w-full items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* LEFT */}
 
           <div className="flex items-center gap-2 text-[11px] font-medium">
@@ -287,12 +354,10 @@ function Navbar({ dashboard = false }) {
             </motion.span>
 
             <span className="hidden sm:inline">
-              AI-Powered Skill Intelligence Platform
+              ASPIRANTS AI - Skill Gap Analysis & Adaptive Career Intelligence
             </span>
 
-            <span className="sm:hidden">
-              STATWISE AI
-            </span>
+            <span className="sm:hidden">ASPIRANTS AI</span>
           </div>
 
           {/* RIGHT */}
@@ -357,7 +422,7 @@ function Navbar({ dashboard = false }) {
         }}
         className="border-b border-[#E1C75B] bg-[#F6D76A] shadow-[0_4px_20px_rgba(23,32,51,0.08)]"
       >
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1536px] w-full px-4 sm:px-6 lg:px-8">
           <div className="flex h-[76px] items-center justify-between">
             {/* ==================================================
                 LOGO
@@ -414,14 +479,14 @@ function Navbar({ dashboard = false }) {
 
               <div className="leading-none">
                 <div className="text-[20px] font-black tracking-tight text-[#172033]">
-                  STATWISE
+                  ASPIRANTS
                   <span className="ml-1 text-[#9A6900]">
                     AI
                   </span>
                 </div>
 
                 <div className="mt-1.5 text-[8px] font-bold uppercase tracking-[0.22em] text-[#665313]">
-                  Skill Intelligence
+                  Skill & Career Intelligence
                 </div>
               </div>
             </Link>
@@ -438,11 +503,10 @@ function Navbar({ dashboard = false }) {
                   <Link
                     key={item.name}
                     to={item.path}
-                    className={`relative rounded-xl px-3.5 py-2.5 text-[13px] font-bold transition-all duration-300 ${
-                      active
-                        ? "bg-[#172033] text-white shadow-md"
+                    className={`relative whitespace-nowrap rounded-xl px-3 py-2 text-[12.5px] 2xl:text-[13px] font-bold transition-all duration-200 ${active
+                        ? "bg-[#172033] text-white shadow-md ring-1 ring-[#172033]/20"
                         : "text-[#263246] hover:bg-[#FFE9A6] hover:text-[#172033]"
-                    }`}
+                      }`}
                   >
                     {item.name}
 
@@ -469,11 +533,10 @@ function Navbar({ dashboard = false }) {
                     onClick={() =>
                       setExploreOpen((prev) => !prev)
                     }
-                    className={`group ml-1 flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-[13px] font-bold transition-all duration-300 ${
-                      exploreOpen
+                    className={`group ml-1 flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-[13px] font-bold transition-all duration-300 ${exploreOpen
                         ? "bg-[#FFE9A6] text-[#172033]"
                         : "text-[#263246] hover:bg-[#FFE9A6]"
-                    }`}
+                      }`}
                   >
                     Explore
 
@@ -540,7 +603,7 @@ function Navbar({ dashboard = false }) {
                               />
 
                               <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#9A6900]">
-                                Explore STATWISE AI
+                                Explore ASPIRANTS AI
                               </p>
                             </div>
 
@@ -582,18 +645,16 @@ function Navbar({ dashboard = false }) {
                                           false,
                                         )
                                       }
-                                      className={`group flex items-center gap-3 rounded-xl p-3 transition-all duration-200 ${
-                                        active
+                                      className={`group flex items-center gap-3 rounded-xl p-3 transition-all duration-200 ${active
                                           ? "bg-[#FFF3B0]"
                                           : "hover:bg-[#FFF8D9]"
-                                      }`}
+                                        }`}
                                     >
                                       <div
-                                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#9A6900] transition ${
-                                          active
+                                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#9A6900] transition ${active
                                             ? "bg-[#F6D76A]"
                                             : "bg-[#FFF3B0] group-hover:bg-[#F6D76A]"
-                                        }`}
+                                          }`}
                                       >
                                         <Icon size={19} />
                                       </div>
@@ -644,11 +705,10 @@ function Navbar({ dashboard = false }) {
                   setSearchOpen((prev) => !prev)
                 }
                 aria-label="Search"
-                className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-300 ${
-                  searchOpen
+                className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-300 ${searchOpen
                     ? "bg-[#172033] text-white"
                     : "text-[#263246] hover:bg-[#FFE9A6]"
-                }`}
+                  }`}
               >
                 <Search size={19} />
               </motion.button>
@@ -657,7 +717,7 @@ function Navbar({ dashboard = false }) {
 
               <Link
                 to="/login"
-                className="rounded-xl px-4 py-2.5 text-[13px] font-bold text-[#172033] transition-all duration-300 hover:bg-[#FFE9A6]"
+                className="whitespace-nowrap rounded-xl px-3.5 py-2 text-[13px] font-bold text-[#172033] transition-all duration-300 hover:bg-[#FFE9A6]"
               >
                 Login
               </Link>
@@ -666,7 +726,7 @@ function Navbar({ dashboard = false }) {
 
               <Link
                 to="/signup"
-                className="group flex items-center gap-2 rounded-xl bg-[#172033] px-5 py-3 text-[13px] font-bold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#263653] hover:shadow-xl"
+                className="group flex whitespace-nowrap items-center gap-2 rounded-xl bg-[#172033] px-4 py-2.5 text-[13px] font-bold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#263653] hover:shadow-xl"
               >
                 Start Learning
 
@@ -861,11 +921,10 @@ function Navbar({ dashboard = false }) {
                         key={item.name}
                         to={item.path}
                         onClick={closeMobileMenu}
-                        className={`rounded-xl px-4 py-3 text-sm font-bold transition-all ${
-                          active
+                        className={`rounded-xl px-4 py-3 text-sm font-bold transition-all ${active
                             ? "bg-[#172033] text-white"
                             : "text-[#263246] hover:bg-[#FFE9A6]"
-                        }`}
+                          }`}
                       >
                         {item.name}
                       </Link>

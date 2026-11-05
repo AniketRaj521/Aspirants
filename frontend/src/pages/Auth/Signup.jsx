@@ -127,6 +127,12 @@ export default function Signup() {
         form.email.trim().toLowerCase()
       );
 
+      if (data.demo_otp) {
+        localStorage.setItem("demo_otp", data.demo_otp);
+      } else {
+        localStorage.removeItem("demo_otp");
+      }
+
       // Save basic user information for later pages
       localStorage.setItem(
         "statwise_pending_user",
@@ -141,11 +147,15 @@ export default function Signup() {
 
       console.log("Registration successful.");
       console.log("OTP should be sent to:", form.email);
+      if (data.demo_otp) {
+        console.log("DEMO OTP:", data.demo_otp);
+      }
 
       // Go to OTP verification page
       navigate("/verify-otp", {
         state: {
           email: form.email.trim().toLowerCase(),
+          demo_otp: data.demo_otp || null,
         },
       });
     } catch (error) {

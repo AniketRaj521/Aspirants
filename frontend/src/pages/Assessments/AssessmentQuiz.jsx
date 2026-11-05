@@ -28,8 +28,10 @@ import {
   getNextDifficulty,
 } from "../../services/adaptiveAssessment";
 
+import confetti from "canvas-confetti";
 import { saveAssessmentResult } from "../../services/assessmentStore";
 import { calculateUpdatedCompetency } from "../../services/competencyEngine";
+import { recordAssessmentScore } from "../../services/studentStore";
 
 const TOTAL_QUESTIONS = 10;
 const TEST_DURATION = 15 * 60;
@@ -736,6 +738,20 @@ export default function AssessmentQuiz() {
 
     try {
       saveAssessmentResult(payload);
+      const urlParams = new URLSearchParams(window.location.search);
+      const skillName = urlParams.get("skill") || payload?.skill || "Python";
+      const finalAccuracy = Number(payload.accuracy ?? payload.score ?? 75);
+      recordAssessmentScore(skillName, finalAccuracy);
+
+      try {
+        confetti({
+          particleCount: 80,
+          spread: 75,
+          origin: { y: 0.6 },
+        });
+      } catch (confettiErr) {
+        // ignore
+      }
     } catch (error) {
       console.warn(
         "assessmentStore save failed:",

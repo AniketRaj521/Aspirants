@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import IGOT from "./pages/IGOT";
 
 import Home from "./pages/Home/Home";
 import Upload from "./pages/Upload/Upload";
@@ -18,12 +19,16 @@ import Learning from "./pages/Learning/Learning";
 
 import Assessments from "./pages/Assessments/Assessments";
 import AssessmentQuiz from "./pages/Assessments/AssessmentQuiz";
+import CodeChefSkillTest from "./pages/Assessments/CodeChefSkillTest";
 import DigitalTwin from "./pages/DigitalTwin/DigitalTwin";
 
 import Tutor from "./pages/Tutor/Tutor";
 
 import Profile from "./pages/Profile/Profile";
 import Settings from "./pages/Settings/Settings";
+import PersonalizedRoadmap from "./pages/Roadmaps/PersonalizedRoadmap";
+import Certifications from "./pages/Certifications/Certifications";
+import CareerComparison from "./pages/CareerComparison/CareerComparison";
 
 import GenerateNotes from "./pages/GenerateNotes/GenerateNotes";
 
@@ -131,13 +136,14 @@ function App() {
           path="/"
           element={
             <>
-              <Navbar />
+             <Navbar dashboard={true} />
               <Home />
               <Footer />
             </>
           }
         />
         <Route path="/digital-twin" element={<DigitalTwin />} />
+        <Route path="/igot" element={<IGOT />} />
 
 
         {/* AUTHENTICATION */}
@@ -187,6 +193,21 @@ function App() {
           element={<Learning />}
         />
 
+        <Route
+          path="/roadmaps"
+          element={<PersonalizedRoadmap />}
+        />
+
+        <Route
+          path="/certifications"
+          element={<Certifications />}
+        />
+
+        <Route
+          path="/career-comparison"
+          element={<CareerComparison />}
+        />
+
 
         {/* ASSESSMENTS */}
 
@@ -198,6 +219,11 @@ function App() {
         <Route
           path="/assessments/quiz"
           element={<AssessmentQuiz />}
+        />
+
+        <Route
+          path="/assessments/codechef"
+          element={<CodeChefSkillTest />}
         />
 
 

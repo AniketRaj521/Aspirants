@@ -4,7 +4,7 @@ function Footer() {
   return (
     <footer className="bg-[#172033] text-white">
 
-      <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-[1536px] px-5 py-14 sm:px-8 lg:px-10">
 
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
 
@@ -19,19 +19,18 @@ function Footer() {
 
               <div>
                 <h2 className="text-xl font-black">
-                  STATWISE <span className="text-[#f4c430]">AI</span>
+                  ASPIRANTS <span className="text-[#f4c430]">AI</span>
                 </h2>
 
                 <p className="text-[10px] uppercase tracking-widest text-gray-400">
-                  Skill Intelligence
+                  Skill & Career Intelligence
                 </p>
               </div>
 
             </div>
 
             <p className="mt-5 max-w-sm text-sm leading-6 text-gray-300">
-              AI-powered skill intelligence and personalized learning
-              for a continuously improving workforce.
+              AI-powered skill gap intelligence, personalized career roadmaps, and targeted course recommendations for ambitious tech aspirants.
             </p>
 
           </div>
@@ -55,7 +54,7 @@ function Footer() {
               </a>
 
               <a href="/skills" className="block hover:text-white">
-                Skill Intelligence
+                Skill & Career Intelligence
               </a>
 
               <a href="/learning" className="block hover:text-white">
@@ -120,7 +119,7 @@ function Footer() {
                   </p>
 
                   <p className="mt-1 text-sm">
-                    support@statwise.ai
+                    support@aspirants.ai
                   </p>
 
                 </div>
@@ -161,10 +160,10 @@ function Footer() {
       {/* Bottom */}
       <div className="border-t border-white/10">
 
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-5 text-xs text-gray-400 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
+        <div className="mx-auto flex max-w-[1536px] flex-col gap-3 px-5 py-5 text-xs text-gray-400 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
 
           <p>
-            © 2026 STATWISE AI. All rights reserved.
+            © 2026 ASPIRANTS AI. All rights reserved.
           </p>
 
           <div className="flex gap-5">

@@ -1,22 +1,16 @@
 import json
 import os
-
-from dotenv import load_dotenv
 from groq import Groq
+from dotenv import load_dotenv
 
 load_dotenv()
 
 
 def generate_mcqs(text):
-    api_key = os.getenv("GROQ_API_KEY")
 
-    if not api_key:
-        raise ValueError(
-            "GROQ_API_KEY is not configured. "
-            "Please add it to your backend .env file."
-        )
-
-    client = Groq(api_key=api_key)
+    client = Groq(
+        api_key=os.getenv("GROQ_API_KEY", "")
+    )
 
     prompt = f"""
 Generate 10 multiple choice questions from the following educational content.
@@ -45,17 +39,14 @@ Content:
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "You are an educational quiz generator. "
-                    "Return valid JSON only."
-                ),
+                "content": "You are an educational quiz generator. Return valid JSON only."
             },
             {
                 "role": "user",
-                "content": prompt,
-            },
+                "content": prompt
+            }
         ],
-        temperature=0.3,
+        temperature=0.3
     )
 
     result = response.choices[0].message.content
@@ -65,5 +56,5 @@ Content:
     except json.JSONDecodeError:
         return {
             "error": "Invalid JSON",
-            "raw_response": result,
+            "raw_response": result
         }

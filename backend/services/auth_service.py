@@ -49,8 +49,11 @@ def send_otp_email(email, otp):
         SMTP_EMAIL=yourgmail@gmail.com
         SMTP_PASSWORD=your_16_digit_app_password
     """
+    smtp_email = (os.getenv("SMTP_EMAIL") or "").strip()
+    raw_pwd = (os.getenv("SMTP_APP_PASSWORD") or os.getenv("SMTP_PASSWORD") or "")
+    smtp_password = raw_pwd.replace(" ", "").strip()
 
-    if not SMTP_EMAIL or not SMTP_PASSWORD:
+    if not smtp_email or not smtp_password:
         print("SMTP credentials are not configured.")
         print(f"DEMO OTP for {email}: {otp}")
 
@@ -65,7 +68,7 @@ def send_otp_email(email, otp):
         message = EmailMessage()
 
         message["Subject"] = "STATWISE AI - Email Verification OTP"
-        message["From"] = SMTP_EMAIL
+        message["From"] = smtp_email
         message["To"] = email
 
         message.set_content(
@@ -85,9 +88,9 @@ STATWISE AI Team
 """
         )
 
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
             server.starttls()
-            server.login(SMTP_EMAIL, SMTP_PASSWORD)
+            server.login(smtp_email, smtp_password)
             server.send_message(message)
 
         return {

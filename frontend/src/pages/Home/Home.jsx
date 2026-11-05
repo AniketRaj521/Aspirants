@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 import {
@@ -11,7 +12,6 @@ import {
   FileQuestion,
   GraduationCap,
   LineChart,
-  MessageCircle,
   Play,
   Sparkles,
   Target,
@@ -23,9 +23,15 @@ import {
   BookOpen,
   Bot,
   RefreshCw,
+  GitCompare,
+  Star,
+  ExternalLink,
+  Layers,
+  Briefcase,
+  Check,
 } from "lucide-react";
 
-import governmentWorkforce from "../../assets/government-workforce.png";
+import heroAspirant from "../../assets/hero-aspirant.jpg";
 
 // ============================================================
 // ANIMATION SETTINGS
@@ -40,7 +46,7 @@ const fadeUp = {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.7,
+      duration: 0.6,
       ease: "easeOut",
     },
   },
@@ -50,210 +56,375 @@ const stagger = {
   hidden: {},
   visible: {
     transition: {
-      staggerChildren: 0.12,
+      staggerChildren: 0.1,
     },
   },
 };
 
 // ============================================================
-// HOME
+// ROLE-BASED GAP DATA FOR INTERACTIVE SIMULATOR
+// ============================================================
+
+const ROLE_SIMULATION_DATA = {
+  "Data Scientist": {
+    matchBefore: 54,
+    matchAfter: 92,
+    skillsBefore: [
+      { name: "Python Programming", current: 75, target: 90, gap: 15, severity: "Moderate" },
+      { name: "Machine Learning", current: 50, target: 85, gap: 35, severity: "Critical" },
+      { name: "SQL & Data Analysis", current: 70, target: 80, gap: 10, severity: "Low" },
+      { name: "Statistics & Math", current: 45, target: 85, gap: 40, severity: "Critical" },
+    ],
+    skillsAfter: [
+      { name: "Python Programming", current: 92, target: 90, gap: 0, severity: "Mastered" },
+      { name: "Machine Learning", current: 88, target: 85, gap: 0, severity: "Mastered" },
+      { name: "SQL & Data Analysis", current: 85, target: 80, gap: 0, severity: "Mastered" },
+      { name: "Statistics & Math", current: 86, target: 85, gap: 0, severity: "Mastered" },
+    ],
+    courses: {
+      "Machine Learning": [
+        {
+          title: "Machine Learning Specialization",
+          provider: "Coursera (DeepLearning.AI)",
+          rating: "4.9",
+          reviews: "18.4k",
+          duration: "8 Weeks",
+          level: "Intermediate",
+          badge: "Most Recommended",
+          link: "/learning",
+        },
+        {
+          title: "AWS Certified Machine Learning - Specialty",
+          provider: "AWS Training & Certification",
+          rating: "4.8",
+          reviews: "9.2k",
+          duration: "6 Weeks",
+          level: "Advanced",
+          badge: "Top Industry Credential",
+          link: "/certifications",
+        },
+      ],
+      "Statistics & Math": [
+        {
+          title: "Statistics & Probability for Data Science",
+          provider: "NPTEL / IIT Kharagpur",
+          rating: "4.8",
+          reviews: "12.1k",
+          duration: "12 Weeks",
+          level: "Intermediate",
+          badge: "High Academic Rigor",
+          link: "/learning",
+        },
+        {
+          title: "Applied Mathematical Foundations for AI",
+          provider: "edX / MITx",
+          rating: "4.7",
+          reviews: "6.5k",
+          duration: "10 Weeks",
+          level: "Advanced",
+          badge: "Premier Certificate",
+          link: "/learning",
+        },
+      ],
+      "Python Programming": [
+        {
+          title: "Python for Everybody Specialization",
+          provider: "Coursera / Univ. of Michigan",
+          rating: "4.8",
+          reviews: "45k",
+          duration: "6 Weeks",
+          level: "Beginner-Intermediate",
+          badge: "Best Foundation",
+          link: "/learning",
+        },
+      ],
+      "SQL & Data Analysis": [
+        {
+          title: "Advanced SQL for Data Analytics",
+          provider: "Coursera / Meta",
+          rating: "4.8",
+          reviews: "14k",
+          duration: "4 Weeks",
+          level: "Intermediate",
+          badge: "Practical Data Skills",
+          link: "/learning",
+        },
+      ],
+    },
+  },
+  "Machine Learning Engineer": {
+    matchBefore: 48,
+    matchAfter: 90,
+    skillsBefore: [
+      { name: "Deep Learning & Neural Nets", current: 40, target: 85, gap: 45, severity: "Critical" },
+      { name: "MLOps & Model Deployment", current: 35, target: 80, gap: 45, severity: "Critical" },
+      { name: "Python & PyTorch", current: 65, target: 90, gap: 25, severity: "Moderate" },
+      { name: "System Design for AI", current: 50, target: 75, gap: 25, severity: "Moderate" },
+    ],
+    skillsAfter: [
+      { name: "Deep Learning & Neural Nets", current: 88, target: 85, gap: 0, severity: "Mastered" },
+      { name: "MLOps & Model Deployment", current: 84, target: 80, gap: 0, severity: "Mastered" },
+      { name: "Python & PyTorch", current: 92, target: 90, gap: 0, severity: "Mastered" },
+      { name: "System Design for AI", current: 80, target: 75, gap: 0, severity: "Mastered" },
+    ],
+    courses: {
+      "Deep Learning & Neural Nets": [
+        {
+          title: "Deep Learning Specialization",
+          provider: "Coursera (Andrew Ng)",
+          rating: "4.9",
+          reviews: "32k",
+          duration: "12 Weeks",
+          level: "Intermediate",
+          badge: "Gold Standard",
+          link: "/learning",
+        },
+      ],
+      "MLOps & Model Deployment": [
+        {
+          title: "Machine Learning Engineering for Production (MLOps)",
+          provider: "Coursera (DeepLearning.AI)",
+          rating: "4.8",
+          reviews: "8.7k",
+          duration: "8 Weeks",
+          level: "Advanced",
+          badge: "Production Ready",
+          link: "/learning",
+        },
+      ],
+    },
+  },
+  "Java Developer": {
+    matchBefore: 58,
+    matchAfter: 94,
+    skillsBefore: [
+      { name: "Core Java & OOP", current: 70, target: 90, gap: 20, severity: "Moderate" },
+      { name: "Spring Boot & Microservices", current: 40, target: 85, gap: 45, severity: "Critical" },
+      { name: "Hibernate & JPA", current: 55, target: 80, gap: 25, severity: "Moderate" },
+      { name: "REST APIs & Docker", current: 50, target: 75, gap: 25, severity: "Moderate" },
+    ],
+    skillsAfter: [
+      { name: "Core Java & OOP", current: 92, target: 90, gap: 0, severity: "Mastered" },
+      { name: "Spring Boot & Microservices", current: 88, target: 85, gap: 0, severity: "Mastered" },
+      { name: "Hibernate & JPA", current: 84, target: 80, gap: 0, severity: "Mastered" },
+      { name: "REST APIs & Docker", current: 80, target: 75, gap: 0, severity: "Mastered" },
+    ],
+    courses: {
+      "Spring Boot & Microservices": [
+        {
+          title: "Spring Boot 3 & Microservices Masterclass",
+          provider: "Coursera / VMware Tanzu",
+          rating: "4.9",
+          reviews: "15.3k",
+          duration: "8 Weeks",
+          level: "Intermediate",
+          badge: "Enterprise Standard",
+          link: "/learning",
+        },
+        {
+          title: "Oracle Certified Professional: Java SE Developer",
+          provider: "Oracle University",
+          rating: "4.8",
+          reviews: "7.1k",
+          duration: "6 Weeks",
+          level: "Advanced",
+          badge: "Official Certification",
+          link: "/certifications",
+        },
+      ],
+      "Core Java & OOP": [
+        {
+          title: "Java Programming and Software Engineering",
+          provider: "Coursera / Duke University",
+          rating: "4.8",
+          reviews: "22k",
+          duration: "6 Weeks",
+          level: "Beginner-Intermediate",
+          badge: "Top Rated",
+          link: "/learning",
+        },
+      ],
+    },
+  },
+  "Full Stack Developer": {
+    matchBefore: 52,
+    matchAfter: 91,
+    skillsBefore: [
+      { name: "React & TypeScript", current: 65, target: 85, gap: 20, severity: "Moderate" },
+      { name: "Node.js & Express", current: 45, target: 80, gap: 35, severity: "Critical" },
+      { name: "Database Design (SQL/NoSQL)", current: 55, target: 80, gap: 25, severity: "Moderate" },
+      { name: "Cloud Deployment & CI/CD", current: 30, target: 70, gap: 40, severity: "Critical" },
+    ],
+    skillsAfter: [
+      { name: "React & TypeScript", current: 88, target: 85, gap: 0, severity: "Mastered" },
+      { name: "Node.js & Express", current: 85, target: 80, gap: 0, severity: "Mastered" },
+      { name: "Database Design (SQL/NoSQL)", current: 82, target: 80, gap: 0, severity: "Mastered" },
+      { name: "Cloud Deployment & CI/CD", current: 78, target: 70, gap: 0, severity: "Mastered" },
+    ],
+    courses: {
+      "Node.js & Express": [
+        {
+          title: "Full Stack Web Development with Node.js",
+          provider: "Coursera / IBM",
+          rating: "4.8",
+          reviews: "19.5k",
+          duration: "7 Weeks",
+          level: "Intermediate",
+          badge: "Career Certificate",
+          link: "/learning",
+        },
+      ],
+      "Cloud Deployment & CI/CD": [
+        {
+          title: "DevOps on AWS: Code, Build & Deploy",
+          provider: "AWS Training & Certification",
+          rating: "4.8",
+          reviews: "8.2k",
+          duration: "5 Weeks",
+          level: "Intermediate",
+          badge: "Industry Proven",
+          link: "/learning",
+        },
+      ],
+    },
+  },
+};
+
+// ============================================================
+// MAIN HOME COMPONENT
 // ============================================================
 
 function Home() {
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [demoRunning, setDemoRunning] = useState(false);
-  const [activeSkill, setActiveSkill] = useState("Data Analysis");
-
-  const [competency, setCompetency] = useState(78);
-  const [learningProgress, setLearningProgress] = useState(68);
-
+  // Role & simulator states
+  const [selectedRole, setSelectedRole] = useState("Data Scientist");
+  const [isAfterLearning, setIsAfterLearning] = useState(false);
+  const [activeSkillName, setActiveSkillName] = useState("Machine Learning");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [addedRoadmaps, setAddedRoadmaps] = useState({});
   const [liveIndex, setLiveIndex] = useState(0);
 
-  // ==========================================================
-  // DUMMY SKILLS
-  // ==========================================================
+  const roleData = ROLE_SIMULATION_DATA[selectedRole] || ROLE_SIMULATION_DATA["Data Scientist"];
+  const currentSkills = isAfterLearning ? roleData.skillsAfter : roleData.skillsBefore;
+  const currentMatch = isAfterLearning ? roleData.matchAfter : roleData.matchBefore;
 
-  const skills = {
-    "Data Analysis": 72,
-    Statistics: 86,
-    Probability: 64,
-    Visualization: 61,
-  };
+  // Active skill recommendations
+  const activeSkillCourses =
+    roleData.courses[activeSkillName] ||
+    Object.values(roleData.courses)[0] ||
+    [];
 
-  // ==========================================================
-  // ROTATING AI STATUS
-  // ==========================================================
-
+  // Rotating status notifications
   const aiStatuses = [
-    "Analyzing competency signals...",
-    "Detecting priority skill gaps...",
-    "Mapping learning recommendations...",
-    "Updating personalized pathway...",
+    "Analyzing actual assessment competency scores...",
+    "Benchmarking student skills against 15+ tech job requirements...",
+    "Pinpointing critical skill gaps with exact percentages...",
+    "Querying Coursera, NPTEL & AWS catalogs for targeted courses...",
+    "Generating dynamic 4-Phase Personalized Learning Roadmap...",
   ];
 
   useEffect(() => {
     const interval = setInterval(() => {
       setLiveIndex((prev) => (prev + 1) % aiStatuses.length);
+    }, 3200);
+    return () => clearInterval(interval);
+  }, [aiStatuses.length]);
+
+  // Handle re-analyze simulation
+  const handleRunAnalysis = () => {
+    setIsAnalyzing(true);
+    setTimeout(() => {
+      setIsAnalyzing(false);
+      setIsAfterLearning((prev) => !prev);
+    }, 1200);
+  };
+
+  const handleAddToRoadmap = (courseTitle) => {
+    setAddedRoadmaps((prev) => ({
+      ...prev,
+      [courseTitle]: true,
+    }));
+    setTimeout(() => {
+      setAddedRoadmaps((prev) => ({
+        ...prev,
+        [courseTitle]: false,
+      }));
     }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // ==========================================================
-  // DEMO ANIMATION
-  // ==========================================================
-
-  useEffect(() => {
-    if (!demoRunning) return;
-
-    const interval = setInterval(() => {
-      setCompetency((prev) => {
-        if (prev >= 86) {
-          return 86;
-        }
-
-        return prev + 1;
-      });
-
-      setLearningProgress((prev) => {
-        if (prev >= 92) {
-          return 92;
-        }
-
-        return prev + 2;
-      });
-    }, 180);
-
-    return () => clearInterval(interval);
-  }, [demoRunning]);
-
-  // ==========================================================
-  // STOP DEMO
-  // ==========================================================
-
-  useEffect(() => {
-    if (!demoRunning) return;
-
-    const timeout = setTimeout(() => {
-      setDemoRunning(false);
-    }, 1800);
-
-    return () => clearTimeout(timeout);
-  }, [demoRunning]);
-
-  // ==========================================================
-  // RUN DEMO
-  // ==========================================================
-
-  const runDemo = () => {
-    setCompetency(78);
-    setLearningProgress(68);
-    setDemoRunning(true);
   };
 
   return (
     <main className="overflow-hidden bg-[#FFFDF5] text-[#172033]">
-
       {/* ========================================================
-          HERO
+          HERO SECTION
       ======================================================== */}
-
-      <section className="relative bg-[#FFFDF5]">
-
-        {/* BACKGROUND BLOBS */}
-
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#FFFDF5] via-[#FFFDF5] to-[#FBF8EF] pt-6 pb-16 lg:pt-12 lg:pb-24">
+        {/* Ambient Glowing Halos */}
         <motion.div
           animate={{
-            x: [0, 30, 0],
-            y: [0, 20, 0],
+            x: [0, 25, 0],
+            y: [0, 15, 0],
           }}
           transition={{
             duration: 8,
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="absolute left-[-100px] top-10 h-72 w-72 rounded-full bg-[#FFF3B0] opacity-60 blur-3xl"
+          className="pointer-events-none absolute left-[-80px] top-10 h-96 w-96 rounded-full bg-[#FFF3B0] opacity-70 blur-3xl"
         />
 
         <motion.div
           animate={{
-            x: [0, -25, 0],
-            y: [0, 30, 0],
+            x: [0, -30, 0],
+            y: [0, 25, 0],
           }}
           transition={{
             duration: 9,
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="absolute right-[-100px] top-20 h-80 w-80 rounded-full bg-[#F4C430] opacity-10 blur-3xl"
+          className="pointer-events-none absolute right-[-80px] top-20 h-96 w-96 rounded-full bg-[#F6D76A] opacity-25 blur-3xl"
         />
 
-        <div className="relative mx-auto max-w-7xl px-5 pb-20 pt-12 sm:px-8 lg:px-10 lg:pb-28 lg:pt-20">
-
-          <div className="grid items-center gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:gap-16">
-
-            {/* ==================================================
-                HERO LEFT
-            ================================================== */}
-
+        <div className="relative mx-auto max-w-[1536px] px-4 sm:px-6 lg:px-10">
+          <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] xl:gap-14">
+            {/* HERO LEFT */}
             <motion.div
               initial="hidden"
               animate="visible"
               variants={stagger}
               className="max-w-2xl"
             >
-
-              {/* BADGE */}
-
+              {/* Pill Badge */}
               <motion.div
                 variants={fadeUp}
-                className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#E7DFAF] bg-white px-4 py-2 text-sm font-semibold shadow-sm"
+                className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#E7DFAF] bg-white px-4 py-2 text-xs sm:text-sm font-semibold shadow-sm"
               >
-
                 <motion.span
                   animate={{
                     rotate: [0, 10, -10, 0],
-                    scale: [1, 1.1, 1],
+                    scale: [1, 1.15, 1],
                   }}
                   transition={{
                     duration: 2,
                     repeat: Infinity,
                   }}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-[#F4C430]"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F4C430]"
                 >
-                  <Sparkles size={15} />
+                  <Sparkles size={14} className="text-[#172033]" />
                 </motion.span>
-
-                AI-Powered Skill Intelligence Platform
-
-                <ChevronRight
-                  size={15}
-                  className="text-gray-500"
-                />
-
+                <span className="font-bold text-[#172033]">
+                  AI-Powered Skill Gap & Career Intelligence
+                </span>
+                <ChevronRight size={14} className="text-gray-400" />
               </motion.div>
 
-              {/* TITLE */}
-
+              {/* Title */}
               <motion.h1
                 variants={fadeUp}
-                className="text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl lg:text-[4.35rem]"
+                className="text-4xl font-extrabold leading-[1.12] tracking-tight text-[#172033] sm:text-5xl lg:text-[4.15rem]"
               >
-
-                Empowering the
-
-                <span className="block text-[#172033]">
-                  Government Workforce
-                </span>
-
-                <span className="relative inline-block">
-
-                  with
-
-                  <span className="ml-3 text-[#D89B00]">
-                    AI & Data
-                  </span>
-
+                Empowering Tech Aspirants with{" "}
+                <span className="relative inline-block text-[#9A6900]">
+                  AI & Data
                   <motion.span
                     animate={{
                       width: ["0%", "100%"],
@@ -263,1771 +434,907 @@ function Home() {
                       repeat: Infinity,
                       repeatDelay: 2.5,
                     }}
-                    className="absolute -bottom-2 left-0 h-2 rounded-full bg-[#F4C430]/40"
+                    className="absolute -bottom-1.5 left-0 h-2.5 rounded-full bg-[#F6D76A]/50"
                   />
-
                 </span>
-
+                <span className="mt-2 block text-[2.2rem] sm:text-[3rem] lg:text-[3.4rem] font-black text-[#172033]">
+                  Skill & Course Intelligence
+                </span>
               </motion.h1>
 
-              {/* DESCRIPTION */}
-
+              {/* Description */}
               <motion.p
                 variants={fadeUp}
-                className="mt-7 max-w-xl text-base leading-7 text-slate-600 sm:text-lg"
+                className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg"
               >
-                STATWISE AI identifies skill gaps, predicts competency,
-                recommends personalized learning paths, and helps employees
-                continuously improve through intelligent AI assistance.
+                <strong className="font-bold text-[#172033]">ASPIRANTS</strong> calculates your genuine skill gaps from hands-on assessments, benchmarks your profile against 15+ industry tech roles, and maps out targeted course recommendations, industry certifications, and step-by-step personalized roadmaps.
               </motion.p>
 
-              {/* BUTTONS */}
-
+              {/* Action Buttons */}
               <motion.div
                 variants={fadeUp}
-                className="mt-8 flex flex-col gap-3 sm:flex-row"
+                className="mt-8 flex flex-wrap items-center gap-3.5"
               >
-
-                <a
-                  href="/signup"
-                  className="group inline-flex items-center justify-center gap-2 rounded-xl bg-[#172033] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition hover:-translate-y-1 hover:shadow-xl"
+                <Link
+                  to="/signup"
+                  className="group inline-flex items-center justify-center gap-2 rounded-xl bg-[#172033] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:bg-[#263653] hover:shadow-xl"
                 >
-                  Start Learning
-
+                  Start Learning Free
                   <ArrowRight
-                    size={18}
+                    size={17}
                     className="transition-transform group-hover:translate-x-1"
                   />
-
-                </a>
+                </Link>
 
                 <button
                   onClick={() =>
                     document
                       .getElementById("ai-demo")
-                      ?.scrollIntoView({
-                        behavior: "smooth",
-                      })
+                      ?.scrollIntoView({ behavior: "smooth" })
                   }
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#DCD3A5] bg-white px-6 py-3.5 text-sm font-bold text-[#172033] transition hover:-translate-y-1 hover:bg-[#FFF8D9]"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#DCD3A5] bg-white px-5 py-3 text-sm font-bold text-[#172033] transition-all duration-300 hover:-translate-y-1 hover:border-[#172033] hover:bg-[#FFF8D9]"
                 >
-
-                  <Play size={16} />
-
-                  Try AI Demo
-
+                  <Play size={15} className="fill-[#172033]" />
+                  Try AI Gap Simulator
                 </button>
 
+                <Link
+                  to="/career-comparison"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FFF3B0] px-4 py-3 text-xs sm:text-sm font-bold text-[#665313] transition-all duration-200 hover:bg-[#F6D76A]"
+                >
+                  <GitCompare size={15} />
+                  Role Compare
+                </Link>
               </motion.div>
 
-              {/* TRUST ITEMS */}
-
+              {/* Trust Value Props */}
               <motion.div
                 variants={fadeUp}
-                className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-500"
+                className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-xs sm:text-sm text-slate-600"
               >
-
                 <div className="flex items-center gap-2">
-                  <CheckCircle2
-                    size={17}
-                    className="text-[#16865B]"
-                  />
-                  Personalized learning
+                  <CheckCircle2 size={16} className="text-[#16865B]" />
+                  <span>Real-time skill gap detection</span>
                 </div>
-
                 <div className="flex items-center gap-2">
-                  <CheckCircle2
-                    size={17}
-                    className="text-[#16865B]"
-                  />
-                  AI skill analysis
+                  <CheckCircle2 size={16} className="text-[#16865B]" />
+                  <span>AI course & cert matching</span>
                 </div>
-
                 <div className="flex items-center gap-2">
-                  <CheckCircle2
-                    size={17}
-                    className="text-[#16865B]"
-                  />
-                  Continuous assessment
+                  <CheckCircle2 size={16} className="text-[#16865B]" />
+                  <span>4-Phase personalized roadmaps</span>
                 </div>
-
               </motion.div>
-
             </motion.div>
 
-            {/* ==================================================
-                HERO RIGHT
-            ================================================== */}
-
+            {/* HERO RIGHT (STUDENT IMAGE WITH AMBIENT GLOW) */}
             <motion.div
-              initial={{
-                opacity: 0,
-                x: 40,
-              }}
-              animate={{
-                opacity: 1,
-                x: 0,
-              }}
-              transition={{
-                duration: 0.9,
-                delay: 0.2,
-              }}
-              className="relative mx-auto w-full max-w-[620px]"
+              initial={{ opacity: 0, scale: 0.96, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.15 }}
+              className="relative mx-auto w-full max-w-[640px]"
             >
+              {/* Outer Glow Halo */}
+              <div className="absolute -inset-3 rounded-[2.5rem] bg-gradient-to-tr from-[#F6D76A]/40 via-white/50 to-[#172033]/10 blur-xl" />
 
-              {/* DECORATION */}
-
+              {/* Main Image Container */}
               <motion.div
                 animate={{
-                  rotate: [0, 360],
+                  y: [0, -6, 0],
                 }}
                 transition={{
-                  duration: 20,
+                  duration: 6,
                   repeat: Infinity,
-                  ease: "linear",
+                  ease: "easeInOut",
                 }}
-                className="absolute -right-6 -top-8 h-24 w-24 rounded-full border border-[#F4C430]/30"
-              />
+                className="relative overflow-hidden rounded-[2rem] border-[5px] border-white bg-white shadow-[0_25px_60px_rgba(23,32,51,0.14)] ring-1 ring-[#E7DFAF]"
+              >
+                <img
+                  src={heroAspirant}
+                  alt="Student using ASPIRANTS AI platform for Skill Gap Analysis, Course Recommendations & Career Roadmaps"
+                  className="w-full object-cover transition-transform duration-700 hover:scale-[1.02]"
+                />
 
+                {/* Subtle Interactive Floating Overlays */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="absolute left-4 top-4 hidden items-center gap-2 rounded-xl border border-white/80 bg-white/95 px-3 py-2 shadow-lg backdrop-blur sm:flex"
+                >
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-[#16865B] animate-ping" />
+                  <span className="text-[11px] font-bold text-[#172033]">
+                    Live Gap Engine: <span className="text-[#16865B]">Active</span>
+                  </span>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 }}
+                  className="absolute bottom-4 right-4 hidden items-center gap-2 rounded-xl border border-[#F6D76A] bg-[#172033] px-3.5 py-2 text-white shadow-xl sm:flex"
+                >
+                  <Award size={15} className="text-[#F6D76A]" />
+                  <span className="text-xs font-bold">
+                    Target Role: <span className="text-[#F6D76A]">Data Scientist 92%</span>
+                  </span>
+                </motion.div>
+              </motion.div>
+
+              {/* Floating Ambient Sparkle Card */}
               <motion.div
                 animate={{
-                  scale: [1, 1.2, 1],
-                }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                }}
-                className="absolute -bottom-10 -left-10 h-36 w-36 rounded-full bg-[#FFF3B0] blur-2xl"
-              />
-
-              {/* IMAGE */}
-
-              <div className="relative overflow-hidden rounded-[2rem] border-[6px] border-white bg-[#F5E7A5] shadow-[0_30px_70px_rgba(23,32,51,0.18)]">
-
-                <div className="relative h-[410px] sm:h-[500px]">
-
-                  <img
-                    src={governmentWorkforce}
-                    alt="Government workforce using digital learning technology"
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#172033]/55 via-transparent to-transparent" />
-
-                  {/* AI BADGE */}
-
-                  <motion.div
-                    animate={{
-                      y: [0, -7, 0],
-                    }}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                    className="absolute left-5 top-5 flex items-center gap-3 rounded-2xl border border-white/50 bg-white/90 px-4 py-3 shadow-xl backdrop-blur"
-                  >
-
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F4C430]">
-
-                      <Brain size={20} />
-
-                    </div>
-
-                    <div>
-
-                      <p className="text-xs font-medium text-slate-500">
-                        Intelligence Engine
-                      </p>
-
-                      <p className="text-sm font-extrabold">
-                        AI Skill Analysis
-                      </p>
-
-                    </div>
-
-                  </motion.div>
-
-                  {/* COMPETENCY CARD */}
-
-                  <motion.div
-                    animate={{
-                      y: [0, 6, 0],
-                    }}
-                    transition={{
-                      duration: 4,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                    className="absolute bottom-5 left-5 w-[210px] rounded-2xl border border-white/60 bg-white/95 p-4 shadow-2xl backdrop-blur"
-                  >
-
-                    <div className="flex items-center justify-between">
-
-                      <div>
-
-                        <p className="text-xs text-slate-500">
-                          Competency Score
-                        </p>
-
-                        <motion.p
-                          key={competency}
-                          initial={{
-                            scale: 1.15,
-                          }}
-                          animate={{
-                            scale: 1,
-                          }}
-                          className="mt-1 text-3xl font-extrabold"
-                        >
-                          {competency}%
-                        </motion.p>
-
-                      </div>
-
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E6F5ED]">
-
-                        <TrendingUp
-                          size={21}
-                          className="text-[#16865B]"
-                        />
-
-                      </div>
-
-                    </div>
-
-                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-
-                      <motion.div
-                        animate={{
-                          width: `${competency}%`,
-                        }}
-                        transition={{
-                          duration: 0.5,
-                        }}
-                        className="h-full rounded-full bg-[#16865B]"
-                      />
-
-                    </div>
-
-                    <p className="mt-2 text-xs font-semibold text-[#16865B]">
-                      +6.4% improvement
-                    </p>
-
-                  </motion.div>
-
-                  {/* SKILL GAP CARD */}
-
-                  <motion.div
-                    animate={{
-                      y: [0, -5, 0],
-                    }}
-                    transition={{
-                      duration: 3.5,
-                      repeat: Infinity,
-                    }}
-                    className="absolute bottom-5 right-5 hidden w-[205px] rounded-2xl border border-white/60 bg-white/95 p-4 shadow-2xl backdrop-blur sm:block"
-                  >
-
-                    <div className="mb-3 flex items-center gap-2">
-
-                      <Target
-                        size={17}
-                        className="text-[#D89B00]"
-                      />
-
-                      <span className="text-xs font-bold">
-                        Skill Gap
-                      </span>
-
-                    </div>
-
-                    <SkillMini
-                      name="Data Analysis"
-                      value={72}
-                    />
-
-                    <SkillMini
-                      name="Statistics"
-                      value={86}
-                    />
-
-                    <SkillMini
-                      name="Visualization"
-                      value={61}
-                    />
-
-                  </motion.div>
-
-                </div>
-
-              </div>
-
-              {/* FLOATING ICON */}
-
-              <motion.div
-                animate={{
-                  rotate: [0, 5, -5, 0],
+                  rotate: [0, 4, -4, 0],
                   y: [0, -8, 0],
                 }}
                 transition={{
                   duration: 5,
                   repeat: Infinity,
                 }}
-                className="absolute -right-4 top-1/2 hidden h-16 w-16 items-center justify-center rounded-2xl bg-[#172033] text-[#F4C430] shadow-2xl lg:flex"
+                className="absolute -right-3 -top-3 hidden h-14 w-14 items-center justify-center rounded-2xl bg-[#F6D76A] text-[#172033] shadow-xl md:flex"
               >
-                <Zap size={27} />
+                <Brain size={26} />
               </motion.div>
-
             </motion.div>
-
           </div>
         </div>
       </section>
 
       {/* ========================================================
-          STATS
+          DYNAMIC PLATFORM STATS
       ======================================================== */}
-
-      <section className="bg-[#172033]">
-
-        <div className="mx-auto grid max-w-7xl grid-cols-2 px-5 py-12 sm:px-8 lg:grid-cols-4 lg:px-10">
-
-          <Stat
-            value="AI"
-            label="Powered Skill Intelligence"
-          />
-
-          <Stat
-            value="24/7"
-            label="Learning Assistance"
-          />
-
-          <Stat
-            value="100%"
-            label="Personalized Learning"
-          />
-
-          <Stat
-            value="∞"
-            label="Continuous Growth"
-          />
-
+      <section className="border-y border-[#172033]/10 bg-[#172033] text-white">
+        <div className="mx-auto grid max-w-[1536px] grid-cols-2 px-4 py-10 sm:px-6 lg:grid-cols-4 lg:px-10">
+          <Stat value="15+" label="Industry Tech Roles Benchmarked" />
+          <Stat value="100%" label="Genuine Skill Gap Detection" />
+          <Stat value="500+" label="Curated Courses & Certifications" />
+          <Stat value="4-Phase" label="Personalized Learning Roadmaps" />
         </div>
-
       </section>
 
       {/* ========================================================
-          INTERACTIVE AI DEMO
+          DYNAMIC INTERACTIVE AI SKILL GAP & COURSE SIMULATOR
+          ("DOWN OF THIS SCREENSHOT")
       ======================================================== */}
-
       <section
         id="ai-demo"
-        className="bg-[#FFFDF5] py-20 lg:py-28"
+        className="relative bg-[#FFFDF5] py-20 lg:py-28"
       >
-
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
-
+        <div className="mx-auto max-w-[1536px] px-4 sm:px-6 lg:px-10">
           <SectionHeading
-            eyebrow="LIVE AI DEMO"
-            title="See how STATWISE AI thinks"
-            description="This interactive prototype demonstrates how competency signals can be converted into learning recommendations."
+            eyebrow="INTERACTIVE LIVE SIMULATOR"
+            title="See How ASPIRANTS AI Detects Gaps & Recommends Courses"
+            description="Select a technology role below to simulate real assessment scores, identify genuine competency gaps, and view dynamically matched course & certification recommendations."
           />
 
-          <div className="mt-14 grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-
-            {/* LEFT */}
-
-            <motion.div
-              initial={{
-                opacity: 0,
-                x: -30,
-              }}
-              whileInView={{
-                opacity: 1,
-                x: 0,
-              }}
-              viewport={{
-                once: true,
-              }}
-              className="rounded-[2rem] border border-[#E7DFAF] bg-white p-7 shadow-[0_25px_60px_rgba(23,32,51,0.08)]"
-            >
-
-              <div className="flex items-center gap-3">
-
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF3B0]">
-
-                  <Bot size={24} />
-
-                </div>
-
-                <div>
-
-                  <p className="text-xs font-bold uppercase tracking-wider text-[#9A6900]">
-                    AI Competency Engine
-                  </p>
-
-                  <h3 className="text-xl font-extrabold">
-                    Employee Skill Profile
-                  </h3>
-
-                </div>
-
-              </div>
-
-              <div className="mt-8 space-y-4">
-
-                {/* ROLE */}
-
-                <div className="rounded-2xl bg-[#FFF8D9] p-4">
-
-                  <div className="flex items-center justify-between">
-
-                    <span className="text-sm font-bold">
-                      Role
-                    </span>
-
-                    <span className="rounded-lg bg-white px-3 py-1 text-xs font-bold">
-                      Statistical Officer
-                    </span>
-
-                  </div>
-
-                </div>
-
-                {/* COMPETENCY */}
-
-                <div className="rounded-2xl border border-slate-100 p-4">
-
-                  <div className="flex items-center justify-between">
-
-                    <span className="text-sm font-bold">
-                      Current Competency
-                    </span>
-
-                    <motion.span
-                      key={competency}
-                      initial={{
-                        scale: 1.2,
-                      }}
-                      animate={{
-                        scale: 1,
-                      }}
-                      className="text-xl font-extrabold text-[#16865B]"
-                    >
-                      {competency}%
-                    </motion.span>
-
-                  </div>
-
-                </div>
-
-                {/* PROGRESS */}
-
-                <div className="rounded-2xl border border-slate-100 p-4">
-
-                  <div className="flex items-center justify-between">
-
-                    <span className="text-sm font-bold">
-                      Learning Progress
-                    </span>
-
-                    <span className="text-sm font-extrabold">
-                      {learningProgress}%
-                    </span>
-
-                  </div>
-
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-
-                    <motion.div
-                      animate={{
-                        width: `${learningProgress}%`,
-                      }}
-                      transition={{
-                        duration: 0.4,
-                      }}
-                      className="h-full rounded-full bg-[#F4C430]"
-                    />
-
-                  </div>
-
-                </div>
-
-              </div>
-
-              {/* BUTTON */}
-
-              <button
-                onClick={runDemo}
-                disabled={demoRunning}
-                className="mt-7 flex w-full items-center justify-center gap-2 rounded-xl bg-[#172033] px-5 py-3.5 text-sm font-bold text-white transition hover:-translate-y-1 hover:bg-[#263653] disabled:cursor-wait disabled:opacity-70"
-              >
-
-                {demoRunning ? (
-                  <>
-                    <RefreshCw
-                      size={17}
-                      className="animate-spin"
-                    />
-
-                    AI is analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={17} />
-
-                    Analyze Skills
-                  </>
-                )}
-
-              </button>
-
-              {/* LIVE STATUS */}
-
-              <AnimatePresence mode="wait">
-
-                <motion.div
-                  key={liveIndex}
-                  initial={{
-                    opacity: 0,
-                    y: 5,
+          {/* ROLE SELECTOR TABS */}
+          <div className="mt-10 flex flex-wrap items-center gap-2.5 pb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 mr-2 flex items-center gap-1.5">
+              <Briefcase size={14} className="text-[#9A6900]" /> Select Career Role:
+            </span>
+            {Object.keys(ROLE_SIMULATION_DATA).map((role) => {
+              const active = selectedRole === role;
+              return (
+                <button
+                  key={role}
+                  onClick={() => {
+                    setSelectedRole(role);
+                    setActiveSkillName(
+                      ROLE_SIMULATION_DATA[role].skillsBefore[1]?.name ||
+                      ROLE_SIMULATION_DATA[role].skillsBefore[0]?.name
+                    );
                   }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
-                  exit={{
-                    opacity: 0,
-                    y: -5,
-                  }}
-                  className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500"
+                  className={`relative rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all duration-200 ${
+                    active
+                      ? "bg-[#172033] text-white shadow-md ring-2 ring-[#F6D76A]"
+                      : "border border-[#E7DFAF] bg-white text-slate-700 hover:bg-[#FFF8D9]"
+                  }`}
                 >
-
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#16865B]" />
-
-                  {aiStatuses[liveIndex]}
-
-                </motion.div>
-
-              </AnimatePresence>
-
-            </motion.div>
-
-            {/* RIGHT */}
-
-            <motion.div
-              initial={{
-                opacity: 0,
-                x: 30,
-              }}
-              whileInView={{
-                opacity: 1,
-                x: 0,
-              }}
-              viewport={{
-                once: true,
-              }}
-              className="rounded-[2rem] bg-[#172033] p-7 text-white shadow-2xl"
-            >
-
-              <div className="flex items-center justify-between">
-
-                <div>
-
-                  <p className="text-xs uppercase tracking-wider text-slate-400">
-                    AI Analysis
-                  </p>
-
-                  <h3 className="mt-1 text-2xl font-extrabold">
-                    Competency Intelligence
-                  </h3>
-
-                </div>
-
-                <motion.div
-                  animate={{
-                    scale: [1, 1.1, 1],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                  }}
-                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F4C430] text-[#172033]"
-                >
-                  <Activity size={21} />
-                </motion.div>
-
-              </div>
-
-              {/* SKILLS */}
-
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
-
-                {Object.entries(skills).map(
-                  ([name, value]) => (
-
-                    <button
-                      key={name}
-                      onClick={() =>
-                        setActiveSkill(name)
-                      }
-                      className={`rounded-2xl border p-4 text-left transition-all ${
-                        activeSkill === name
-                          ? "border-[#F4C430] bg-white/10"
-                          : "border-white/10 bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-
-                      <div className="flex items-center justify-between">
-
-                        <span className="text-sm font-semibold">
-                          {name}
-                        </span>
-
-                        <span className="text-sm font-extrabold text-[#F4C430]">
-                          {value}%
-                        </span>
-
-                      </div>
-
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
-
-                        <motion.div
-                          initial={{
-                            width: 0,
-                          }}
-                          whileInView={{
-                            width: `${value}%`,
-                          }}
-                          viewport={{
-                            once: true,
-                          }}
-                          transition={{
-                            duration: 1,
-                          }}
-                          className="h-full rounded-full bg-[#F4C430]"
-                        />
-
-                      </div>
-
-                    </button>
-
-                  ),
-                )}
-
-              </div>
-
-              {/* RECOMMENDATION */}
-
-              <motion.div
-                key={activeSkill}
-                initial={{
-                  opacity: 0,
-                  y: 10,
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                }}
-                className="mt-7 rounded-2xl bg-[#F4C430] p-5 text-[#172033]"
-              >
-
-                <div className="flex gap-3">
-
-                  <Sparkles
-                    size={21}
-                    className="mt-0.5 shrink-0"
-                  />
-
-                  <div>
-
-                    <p className="text-sm font-extrabold">
-                      AI Recommendation
-                    </p>
-
-                    <p className="mt-1 text-sm leading-6">
-
-                      {activeSkill === "Visualization"
-                        ? "Prioritize data visualization training to strengthen dashboard and reporting skills."
-                        : activeSkill === "Probability"
-                        ? "Build stronger probability fundamentals through targeted practice and adaptive quizzes."
-                        : activeSkill === "Statistics"
-                        ? "Maintain your strong statistics competency and apply it to advanced statistical analysis."
-                        : "Focus on practical data analysis projects and statistical computing exercises."}
-
-                    </p>
-
-                  </div>
-
-                </div>
-
-              </motion.div>
-
-            </motion.div>
-
+                  {role}
+                  {active && (
+                    <span className="ml-2 inline-block h-2 w-2 rounded-full bg-[#F6D76A]" />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-        </div>
+          {/* MAIN SIMULATOR GRID */}
+          <div className="mt-8 grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+            {/* LEFT: SKILL GAP BENCHMARKING ENGINE */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="rounded-[2rem] border border-[#E7DFAF] bg-white p-6 shadow-[0_20px_50px_rgba(23,32,51,0.06)] sm:p-8"
+            >
+              {/* Header with Role & Match Score */}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF3B0] text-[#172033]">
+                    <Target size={24} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-[#9A6900]">
+                      Target Career Role
+                    </span>
+                    <h3 className="text-xl font-extrabold text-[#172033]">
+                      {selectedRole}
+                    </h3>
+                  </div>
+                </div>
 
+                {/* Match Score Badge */}
+                <div className="flex items-center gap-3 rounded-2xl bg-[#FFF8D9] px-4 py-2.5 border border-[#F6D76A]">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-500 block">
+                      Career Match Score
+                    </span>
+                    <span className="text-2xl font-black text-[#172033]">
+                      {currentMatch}%
+                    </span>
+                  </div>
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full font-bold ${
+                      currentMatch >= 85
+                        ? "bg-[#E6F5ED] text-[#16865B]"
+                        : "bg-[#FFF3B0] text-[#9A6900]"
+                    }`}
+                  >
+                    <TrendingUp size={18} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress Stage Toggle: Before Learning vs After Learning */}
+              <div className="mt-6 flex items-center justify-between rounded-xl bg-slate-50 p-2 border border-slate-200">
+                <button
+                  onClick={() => setIsAfterLearning(false)}
+                  className={`flex-1 rounded-lg py-2 text-xs sm:text-sm font-bold transition-all ${
+                    !isAfterLearning
+                      ? "bg-white text-[#172033] shadow-sm font-extrabold"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  1. Initial Assessment (Skill Gaps Detected)
+                </button>
+                <button
+                  onClick={() => setIsAfterLearning(true)}
+                  className={`flex-1 rounded-lg py-2 text-xs sm:text-sm font-bold transition-all ${
+                    isAfterLearning
+                      ? "bg-[#16865B] text-white shadow-sm font-extrabold"
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  2. Post-Course Reassessment (Gaps Resolved!)
+                </button>
+              </div>
+
+              {/* Skill Bars with Exact Gap % */}
+              <div className="mt-6 space-y-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Click any skill below to see its AI course recommendations:
+                </p>
+
+                {currentSkills.map((skill) => {
+                  const isSelected = activeSkillName === skill.name;
+                  return (
+                    <button
+                      key={skill.name}
+                      onClick={() => setActiveSkillName(skill.name)}
+                      className={`w-full rounded-2xl border p-4 text-left transition-all ${
+                        isSelected
+                          ? "border-[#172033] bg-[#FFFDF5] shadow-md ring-2 ring-[#F6D76A]"
+                          : "border-slate-100 bg-white hover:border-[#E7DFAF] hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-[#172033]">
+                          {skill.name}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500">
+                            Current: <strong>{skill.current}%</strong> / Target: <strong>{skill.target}%</strong>
+                          </span>
+
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ${
+                              skill.severity === "Mastered"
+                                ? "bg-[#E6F5ED] text-[#16865B]"
+                                : skill.severity === "Critical"
+                                ? "bg-red-50 text-red-700 border border-red-200"
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                            }`}
+                          >
+                            {skill.severity === "Mastered"
+                              ? "✓ Gap Resolved"
+                              : `Gap: ${skill.gap}% (${skill.severity})`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Animated Dual Progress Bar */}
+                      <div className="mt-3 relative h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        {/* Target marker */}
+                        <div
+                          className="absolute top-0 bottom-0 border-r-2 border-[#172033] z-10 opacity-70"
+                          style={{ left: `${skill.target}%` }}
+                          title={`Industry Target: ${skill.target}%`}
+                        />
+                        {/* Current bar */}
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${skill.current}%` }}
+                          transition={{ duration: 0.8 }}
+                          className={`h-full rounded-full ${
+                            skill.severity === "Mastered"
+                              ? "bg-[#16865B]"
+                              : skill.severity === "Critical"
+                              ? "bg-amber-500"
+                              : "bg-[#F4C430]"
+                          }`}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Action Button: Run AI Reassessment */}
+              <div className="mt-7 flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleRunAnalysis}
+                  disabled={isAnalyzing}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#172033] px-5 py-3.5 text-sm font-bold text-white transition-all hover:bg-[#263653] disabled:opacity-75"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      Analyzing Competency Data...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} className="text-[#F6D76A]" />
+                      {isAfterLearning ? "Reset to Pre-Learning Gaps" : "Simulate Learning & Reassessment"}
+                    </>
+                  )}
+                </button>
+
+                <Link
+                  to="/assessments"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-[#DCD3A5] bg-[#FFF8D9] px-5 py-3.5 text-sm font-bold text-[#172033] transition-all hover:bg-[#F6D76A]"
+                >
+                  <FileQuestion size={16} />
+                  Take Real Skill Test
+                </Link>
+              </div>
+
+              {/* Rotating Live AI Status */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={liveIndex}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500"
+                >
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#16865B]" />
+                  {aiStatuses[liveIndex]}
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
+
+            {/* RIGHT: DYNAMIC COURSE & CERTIFICATION RECOMMENDATIONS */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="rounded-[2rem] bg-[#172033] p-6 text-white shadow-2xl sm:p-8 flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between border-b border-white/10 pb-5">
+                  <div>
+                    <span className="text-xs uppercase tracking-wider text-[#F6D76A] font-bold">
+                      AI Course Recommendations
+                    </span>
+                    <h3 className="mt-1 text-2xl font-extrabold text-white">
+                      Targeted for {activeSkillName}
+                    </h3>
+                  </div>
+
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F6D76A] text-[#172033]">
+                    <BookOpen size={20} />
+                  </div>
+                </div>
+
+                <p className="mt-4 text-xs sm:text-sm text-slate-300">
+                  Based on the identified skill gap in <strong>{activeSkillName}</strong>, ASPIRANTS AI maps the following top-tier industry courses to close your discrepancy:
+                </p>
+
+                {/* Course Recommendation Cards */}
+                <div className="mt-6 space-y-4">
+                  {activeSkillCourses.length > 0 ? (
+                    activeSkillCourses.map((course, idx) => {
+                      const isAdded = addedRoadmaps[course.title];
+                      return (
+                        <div
+                          key={course.title}
+                          className="rounded-2xl border border-white/10 bg-white/5 p-4 transition-all hover:border-[#F6D76A]/40 hover:bg-white/10"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <span className="inline-block rounded-md bg-[#F6D76A]/20 px-2.5 py-0.5 text-[10px] font-bold text-[#F6D76A]">
+                                {course.badge}
+                              </span>
+                              <h4 className="mt-1.5 text-base font-bold text-white">
+                                {course.title}
+                              </h4>
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                {course.provider}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-1 rounded-lg bg-black/30 px-2 py-1 text-xs text-[#F6D76A]">
+                              <Star size={13} className="fill-[#F6D76A]" />
+                              <span className="font-bold">{course.rating}</span>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between text-xs text-slate-400 border-t border-white/10 pt-3">
+                            <span>{course.duration} • {course.level}</span>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleAddToRoadmap(course.title)}
+                                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                                  isAdded
+                                    ? "bg-[#16865B] text-white"
+                                    : "bg-white/10 text-white hover:bg-white/20"
+                                }`}
+                              >
+                                {isAdded ? "✓ Added to Roadmap" : "+ Add to Roadmap"}
+                              </button>
+
+                              <Link
+                                to={course.link}
+                                className="flex items-center gap-1 rounded-lg bg-[#F6D76A] px-3 py-1.5 text-xs font-bold text-[#172033] hover:bg-[#FFE9A6]"
+                              >
+                                View Course <ExternalLink size={12} />
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-slate-400">
+                      Select a skill with an active gap to view tailored course recommendations.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Roadmap Milestone Insight Box */}
+              <div className="mt-6 rounded-2xl bg-[#F6D76A] p-4 text-[#172033]">
+                <div className="flex items-start gap-3">
+                  <Sparkles size={20} className="mt-0.5 shrink-0 text-[#172033]" />
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider">
+                      Roadmap Milestone Generated
+                    </p>
+                    <p className="mt-0.5 text-xs font-medium leading-5">
+                      Completing these recommended courses will advance your <strong>{activeSkillName}</strong> score by ~35%, elevating your overall match for <strong>{selectedRole}</strong> to 92%.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
       </section>
 
       {/* ========================================================
-          PLATFORM
+          THE 4 PILLARS OF ASPIRANTS AI (PLATFORM ADVANTAGE)
       ======================================================== */}
-
-      <section
-        id="platform"
-        className="bg-white py-20 lg:py-28"
-      >
-
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
-
+      <section className="bg-white py-20 lg:py-28 border-t border-slate-100">
+        <div className="mx-auto max-w-[1536px] px-4 sm:px-6 lg:px-10">
           <SectionHeading
-            eyebrow="THE STATWISE ADVANTAGE"
-            title="One intelligent platform for workforce growth"
-            description="From identifying competency gaps to measuring learning outcomes, STATWISE AI connects every stage of the employee development journey."
+            eyebrow="THE ASPIRANTS ADVANTAGE"
+            title="A Complete AI Career Acceleration Engine"
+            description="From detecting real competency gaps to recommending targeted courses and structuring milestone roadmaps, ASPIRANTS AI guides every step of your career trajectory."
           />
 
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{
-              once: true,
-              amount: 0.15,
-            }}
+            viewport={{ once: true, amount: 0.15 }}
             variants={stagger}
-            className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4"
+            className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4"
           >
-
-            <FeatureCard
-              icon={<Brain size={24} />}
-              title="AI Skill Intelligence"
-              description="Analyze competency levels and identify the skills that need improvement."
-            />
-
             <FeatureCard
               icon={<Target size={24} />}
               title="Skill Gap Detection"
-              description="Compare current capabilities against role-specific competency targets."
+              description="Evaluates your genuine assessment performance against standard benchmarks for 15+ industry roles."
+              link="/skills"
             />
 
             <FeatureCard
-              icon={<GraduationCap size={24} />}
-              title="Personalized Learning"
-              description="Generate focused learning paths based on individual skill gaps."
+              icon={<BookOpen size={24} />}
+              title="Course Recommendations"
+              description="Maps your specific weaknesses directly to top-rated courses and credentials on Coursera, NPTEL & AWS."
+              link="/learning"
             />
 
             <FeatureCard
-              icon={<MessageCircle size={24} />}
-              title="AI Tutor"
-              description="Get instant explanations, guidance and learning support whenever needed."
+              icon={<Layers size={24} />}
+              title="Personalized Roadmaps"
+              description="Structures your learning into ordered 4-phase weekly plans instead of overwhelming you with unstructured content."
+              link="/roadmaps"
             />
 
+            <FeatureCard
+              icon={<Award size={24} />}
+              title="Certifications & Tracking"
+              description="Verify your earned certifications and visualize your competency improvements with before/after progress charts."
+              link="/certifications"
+            />
           </motion.div>
-
         </div>
-
       </section>
 
       {/* ========================================================
-          HOW IT WORKS
+          HOW IT WORKS (4-STEP CAREER READINESS LOOP)
       ======================================================== */}
-
-      <section className="bg-[#FFF8D9] py-20 lg:py-28">
-
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
-
+      <section className="bg-[#FFF8D9] py-20 lg:py-28 border-y border-[#E7DFAF]">
+        <div className="mx-auto max-w-[1536px] px-4 sm:px-6 lg:px-10">
           <SectionHeading
             eyebrow="HOW IT WORKS"
-            title="From skills to measurable impact"
-            description="STATWISE AI creates a continuous intelligence loop for learning and workforce development."
+            title="From Initial Assessment to Dream Tech Offer"
+            description="Our AI continuously listens to your learning signals, refines your roadmaps, and measures your progress toward employment."
           />
 
           <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-
             <ProcessCard
               number="01"
-              icon={<Users size={22} />}
-              title="Know Your Role"
-              text="Build a competency profile based on the learner's role, experience and assessment data."
+              icon={<Briefcase size={22} />}
+              title="Select Target Role"
+              text="Choose from 15+ industry roles such as Data Scientist, Java Developer, ML Engineer, or Full Stack."
             />
 
             <ProcessCard
               number="02"
               icon={<Target size={22} />}
-              title="Find Skill Gaps"
-              text="AI compares current competency against target skills and highlights priority gaps."
+              title="Detect Skill Gaps"
+              text="Take skill assessments to calculate your exact gaps against industry expectations."
             />
 
             <ProcessCard
               number="03"
               icon={<GraduationCap size={22} />}
-              title="Learn Personally"
-              text="Receive targeted courses, resources, quizzes and AI-assisted learning."
+              title="Follow 4-Phase Roadmap"
+              text="Learn through ordered courses and practice tasks curated specifically to eliminate your gaps."
             />
 
             <ProcessCard
               number="04"
               icon={<LineChart size={22} />}
-              title="Measure Growth"
-              text="Track competency improvement and use feedback to continuously refine learning."
+              title="Verify & Track Growth"
+              text="Earn industry credentials, retake assessments, and visualize your before-and-after competency leaps."
             />
-
           </div>
-
         </div>
-
       </section>
 
       {/* ========================================================
-          PERSONALIZED LEARNING
+          PERSONALIZED 4-PHASE LEARNING ROADMAP SHOWCASE
       ======================================================== */}
-
       <section className="bg-[#FFFDF5] py-20 lg:py-28">
-
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
-
+        <div className="mx-auto max-w-[1536px] px-4 sm:px-6 lg:px-10">
           <div className="grid items-center gap-14 lg:grid-cols-2">
-
             <div>
-
-              <p className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#D89B00]">
-                Personalized Learning
+              <p className="text-xs sm:text-sm font-extrabold uppercase tracking-[0.18em] text-[#9A6900]">
+                Step-by-Step Milestones
               </p>
-
-              <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
-                Every learner gets a path built around their needs.
+              <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl text-[#172033]">
+                Never feel lost with an ordered 4-Phase Learning Roadmap.
               </h2>
-
               <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">
-                Instead of giving every employee the same training,
-                STATWISE AI focuses learning on the exact competencies
-                that need improvement.
+                Instead of dumping hundreds of video links all at once, ASPIRANTS AI builds a structured timeline that takes you from fundamental principles to capstone projects and certifications.
               </p>
 
-              <div className="mt-8 space-y-4">
-
-                <CheckRow text="Role-based competency mapping" />
-                <CheckRow text="AI-powered skill gap analysis" />
-                <CheckRow text="Recommended courses and resources" />
-                <CheckRow text="Adaptive quizzes and assessments" />
-                <CheckRow text="Continuous competency tracking" />
-
+              <div className="mt-8 space-y-3.5">
+                <CheckRow text="Phase 1: Foundations & Syntax Mastery (Weeks 1-2)" />
+                <CheckRow text="Phase 2: Mathematics, Core Logic & Architecture (Weeks 3-4)" />
+                <CheckRow text="Phase 3: Applied Frameworks & Deep Dive (Weeks 5-8)" />
+                <CheckRow text="Phase 4: Real-World Capstone Projects & Certifications (Weeks 9-12)" />
               </div>
 
-              <a
-                href="/learning"
-                className="mt-9 inline-flex items-center gap-2 rounded-xl bg-[#172033] px-6 py-3.5 text-sm font-bold text-white transition hover:-translate-y-1"
-              >
-                Explore Learning Paths
-                <ArrowRight size={18} />
-              </a>
+              <div className="mt-9 flex items-center gap-4">
+                <Link
+                  to="/roadmaps"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#172033] px-6 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#263653]"
+                >
+                  Generate My Roadmap
+                  <ArrowRight size={17} />
+                </Link>
 
+                <Link
+                  to="/career-comparison"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#DCD3A5] bg-white px-5 py-3.5 text-sm font-bold text-[#172033] hover:bg-[#FFF8D9]"
+                >
+                  <GitCompare size={16} />
+                  Compare Roles
+                </Link>
+              </div>
             </div>
 
+            {/* Roadmap Visual Card */}
             <div className="relative">
-
               <motion.div
-                initial={{
-                  opacity: 0,
-                  scale: 0.96,
-                }}
-                whileInView={{
-                  opacity: 1,
-                  scale: 1,
-                }}
-                viewport={{
-                  once: true,
-                }}
-                className="rounded-[2rem] border border-[#E7DFAF] bg-white p-6 shadow-[0_25px_60px_rgba(23,32,51,0.10)] sm:p-8"
+                initial={{ opacity: 0, scale: 0.96 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                className="rounded-[2rem] border border-[#E7DFAF] bg-white p-6 shadow-[0_20px_50px_rgba(23,32,51,0.08)] sm:p-8"
               >
-
                 <div className="flex items-center justify-between border-b border-slate-100 pb-5">
-
                   <div>
-
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Recommended Path
-                    </p>
-
-                    <h3 className="mt-1 text-xl font-extrabold">
-                      Data Analysis Essentials
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Personalized Roadmap Preview
+                    </span>
+                    <h3 className="mt-1 text-xl font-extrabold text-[#172033]">
+                      Data Scientist Learning Journey
                     </h3>
-
                   </div>
 
-                  <motion.div
-                    animate={{
-                      rotate: [0, 5, -5, 0],
-                    }}
-                    transition={{
-                      duration: 4,
-                      repeat: Infinity,
-                    }}
-                    className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FFF3B0]"
-                  >
-                    <BarChart3 size={21} />
-                  </motion.div>
-
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FFF3B0] text-[#9A6900]">
+                    <Layers size={21} />
+                  </div>
                 </div>
 
-                <div className="mt-6 space-y-4">
-
-                  <LearningPathItem
-                    number="01"
-                    title="Data Analysis Fundamentals"
-                    meta="6 hours • Beginner"
+                <div className="mt-6 space-y-3.5">
+                  <RoadmapItem
+                    phase="Phase 1"
+                    title="Python Programming & Data Structures"
+                    timeline="Weeks 1–2"
                     progress={100}
                     done
                   />
-
-                  <LearningPathItem
-                    number="02"
-                    title="Statistical Data Interpretation"
-                    meta="8 hours • Intermediate"
-                    progress={68}
+                  <RoadmapItem
+                    phase="Phase 2"
+                    title="Probability, Statistics & Mathematics"
+                    timeline="Weeks 3–4"
+                    progress={75}
                   />
-
-                  <LearningPathItem
-                    number="03"
-                    title="Advanced Data Visualization"
-                    meta="5 hours • Intermediate"
-                    progress={24}
+                  <RoadmapItem
+                    phase="Phase 3"
+                    title="SQL, Machine Learning & Feature Engineering"
+                    timeline="Weeks 5–8"
+                    progress={30}
                   />
-
-                  <LearningPathItem
-                    number="04"
-                    title="Applied Statistical Computing"
-                    meta="7 hours • Advanced"
+                  <RoadmapItem
+                    phase="Phase 4"
+                    title="End-to-End Capstone Projects & AWS Certification"
+                    timeline="Weeks 9–12"
                     progress={0}
                   />
-
                 </div>
 
-                <motion.div
-                  animate={{
-                    scale: [1, 1.02, 1],
-                  }}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                  }}
-                  className="mt-6 rounded-2xl bg-[#172033] p-5 text-white"
-                >
-
+                <div className="mt-6 rounded-2xl bg-[#172033] p-4 text-white">
                   <div className="flex items-center gap-3">
-
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F4C430] text-[#172033]">
-
-                      <Sparkles size={19} />
-
-                    </div>
-
-                    <div>
-
-                      <p className="text-xs text-slate-300">
-                        AI Recommendation
-                      </p>
-
-                      <p className="text-sm font-bold">
-                        Focus next on statistical interpretation.
-                      </p>
-
-                    </div>
-
+                    <Sparkles size={18} className="text-[#F6D76A]" />
+                    <p className="text-xs text-slate-200">
+                      <strong>AI Next Step:</strong> Complete <em>Statistics & Probability for Data Science</em> to unlock Phase 3.
+                    </p>
                   </div>
-
-                </motion.div>
-
+                </div>
               </motion.div>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
       {/* ========================================================
-          SKILL INTELLIGENCE
+          FINAL CTA SECTION
       ======================================================== */}
-
-      <section className="bg-[#172033] py-20 text-white lg:py-28">
-
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
-
-          <div className="grid items-center gap-14 lg:grid-cols-[0.9fr_1.1fr]">
-
-            <div>
-
-              <p className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#F4C430]">
-                Skill Intelligence
-              </p>
-
-              <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
-                Turn competency data into actionable decisions.
-              </h2>
-
-              <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">
-                STATWISE AI transforms assessment and learning signals
-                into a clear view of current competency, target competency
-                and the gaps that matter most.
-              </p>
-
-              <div className="mt-8 grid grid-cols-2 gap-4">
-
-                <DarkMini
-                  icon={<BarChart3 size={20} />}
-                  title="Competency"
-                  value="78%"
-                />
-
-                <DarkMini
-                  icon={<Target size={20} />}
-                  title="Priority Gaps"
-                  value="03"
-                />
-
-                <DarkMini
-                  icon={<Clock3 size={20} />}
-                  title="Learning Hours"
-                  value="24h"
-                />
-
-                <DarkMini
-                  icon={<TrendingUp size={20} />}
-                  title="Growth"
-                  value="+6.4%"
-                />
-
-              </div>
-
-            </div>
-
-            <motion.div
-              initial={{
-                opacity: 0,
-                scale: 0.95,
-              }}
-              whileInView={{
-                opacity: 1,
-                scale: 1,
-              }}
-              viewport={{
-                once: true,
-              }}
-              className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur sm:p-7"
-            >
-
-              <div className="flex items-center justify-between">
-
-                <div>
-
-                  <p className="text-xs text-slate-400">
-                    Competency Overview
-                  </p>
-
-                  <h3 className="mt-1 text-xl font-extrabold">
-                    Statistical Officer
-                  </h3>
-
-                </div>
-
-                <div className="rounded-full bg-[#16865B]/20 px-3 py-1 text-xs font-bold text-[#70E1A8]">
-                  Intermediate
-                </div>
-
-              </div>
-
-              <div className="mt-8 grid gap-5 sm:grid-cols-[150px_1fr]">
-
-                <div className="flex items-center justify-center">
-
-                  <motion.div
-                    animate={{
-                      rotate: [0, 360],
-                    }}
-                    transition={{
-                      duration: 12,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
-                    className="relative flex h-36 w-36 items-center justify-center rounded-full border-[12px] border-[#F4C430]"
-                  >
-
-                    <div className="text-center">
-
-                      <p className="text-4xl font-extrabold">
-                        78
-                      </p>
-
-                      <p className="text-xs text-slate-400">
-                        / 100
-                      </p>
-
-                    </div>
-
-                  </motion.div>
-
-                </div>
-
-                <div className="space-y-5">
-
-                  <DarkSkill
-                    name="Statistics"
-                    value={82}
-                  />
-
-                  <DarkSkill
-                    name="Probability"
-                    value={64}
-                  />
-
-                  <DarkSkill
-                    name="Data Analysis"
-                    value={72}
-                  />
-
-                  <DarkSkill
-                    name="Visualization"
-                    value={61}
-                  />
-
-                </div>
-
-              </div>
-
-              <div className="mt-7 rounded-2xl bg-[#F4C430] p-5 text-[#172033]">
-
-                <div className="flex gap-3">
-
-                  <Sparkles
-                    size={21}
-                    className="mt-0.5 shrink-0"
-                  />
-
-                  <div>
-
-                    <p className="text-sm font-extrabold">
-                      AI Insight
-                    </p>
-
-                    <p className="mt-1 text-sm leading-6">
-                      Data visualization is the highest-priority
-                      competency gap. A focused learning path is recommended.
-                    </p>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            </motion.div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* ========================================================
-          LEARNING ECOSYSTEM
-      ======================================================== */}
-
-      <section className="bg-white py-20 lg:py-28">
-
-        <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
-
-          <SectionHeading
-            eyebrow="LEARNING ECOSYSTEM"
-            title="Everything needed for continuous development"
-            description="A connected ecosystem for learning, assessment, AI assistance and measurable workforce intelligence."
-          />
-
-          <div className="mt-14 grid gap-5 md:grid-cols-2">
-
-            <EcosystemCard
-              icon={<GraduationCap size={25} />}
-              title="Learning Hub"
-              description="Discover structured courses and personalized learning resources."
-              link="Explore Learning"
-              href="/learning"
-            />
-
-            <EcosystemCard
-              icon={<FileQuestion size={25} />}
-              title="Assessment Hub"
-              description="Evaluate competency through adaptive quizzes and assessments."
-              link="Take an Assessment"
-              href="/assessments"
-            />
-
-            <EcosystemCard
-              icon={<MessageCircle size={25} />}
-              title="AI Tutor"
-              description="Ask questions, understand concepts and get contextual learning support."
-              link="Talk to AI Tutor"
-              href="/tutor"
-            />
-
-            <EcosystemCard
-              icon={<BarChart3 size={25} />}
-              title="Skill Intelligence"
-              description="Track competency, identify gaps and monitor development over time."
-              link="View Skill Intelligence"
-              href="/skills"
-            />
-
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* ========================================================
-          FINAL CTA
-      ======================================================== */}
-
-      <section className="bg-[#FFF3B0] py-16 lg:py-20">
-
-        <div className="mx-auto max-w-5xl px-5 text-center sm:px-8">
-
+      <section className="bg-gradient-to-r from-[#FFF3B0] via-[#F6D76A] to-[#FFF3B0] py-16 lg:py-20 border-t border-[#E7DFAF]">
+        <div className="mx-auto max-w-5xl px-4 text-center sm:px-6">
           <motion.div
             animate={{
               y: [0, -6, 0],
-              rotate: [0, 2, -2, 0],
             }}
             transition={{
               duration: 3,
               repeat: Infinity,
             }}
-            className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#172033] text-[#F4C430] shadow-xl"
+            className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#172033] text-[#F6D76A] shadow-xl"
           >
             <Brain size={30} />
           </motion.div>
 
-          <h2 className="mt-6 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
-            Build a smarter, continuously learning workforce.
+          <h2 className="mt-6 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl text-[#172033]">
+            Start Closing Your Skill Gaps with ASPIRANTS AI
           </h2>
 
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-600">
-            Start with your skills. Discover your gaps. Follow your
-            personalized learning path. Measure your growth.
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-700">
+            Identify genuine weaknesses, unlock AI-recommended courses, follow personalized roadmaps, and land your target technology role with confidence.
           </p>
 
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-
-            <a
-              href="/signup"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#172033] px-7 py-3.5 text-sm font-bold text-white shadow-lg transition hover:-translate-y-1"
+          <div className="mt-8 flex flex-col justify-center gap-3.5 sm:flex-row">
+            <Link
+              to="/signup"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#172033] px-7 py-3.5 text-sm font-bold text-white shadow-xl transition-all duration-300 hover:-translate-y-1 hover:bg-[#263653]"
             >
-              Start Your Learning Journey
-              <ArrowRight size={18} />
-            </a>
+              Get Started Free
+              <ArrowRight size={17} />
+            </Link>
 
-            <button
-              onClick={runDemo}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D5C875] bg-white px-7 py-3.5 text-sm font-bold text-[#172033] transition hover:-translate-y-1"
+            <Link
+              to="/career-comparison"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#172033] bg-white px-7 py-3.5 text-sm font-bold text-[#172033] shadow-sm transition-all duration-300 hover:-translate-y-1 hover:bg-[#FFF8D9]"
             >
-              <Sparkles size={17} />
-              Run AI Demo
-            </button>
-
+              <GitCompare size={16} />
+              Explore 15+ Career Roles
+            </Link>
           </div>
-
         </div>
-
       </section>
-
     </main>
   );
 }
 
 // ============================================================
-// SKILL MINI
-// ============================================================
-
-function SkillMini({ name, value }) {
-  return (
-    <div className="mb-3 last:mb-0">
-
-      <div className="mb-1 flex justify-between text-[10px] font-bold">
-        <span>{name}</span>
-        <span>{value}%</span>
-      </div>
-
-      <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-
-        <motion.div
-          initial={{
-            width: 0,
-          }}
-          whileInView={{
-            width: `${value}%`,
-          }}
-          viewport={{
-            once: true,
-          }}
-          transition={{
-            duration: 1,
-          }}
-          className="h-full rounded-full bg-[#F4C430]"
-        />
-
-      </div>
-
-    </div>
-  );
-}
-
-// ============================================================
-// STAT
+// HELPER COMPONENTS
 // ============================================================
 
 function Stat({ value, label }) {
   return (
     <motion.div
-      initial={{
-        opacity: 0,
-        y: 15,
-      }}
-      whileInView={{
-        opacity: 1,
-        y: 0,
-      }}
-      viewport={{
-        once: true,
-      }}
-      whileHover={{
-        y: -5,
-      }}
+      initial={{ opacity: 0, y: 15 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
       className="border-b border-white/10 p-5 text-center lg:border-b-0 lg:border-r last:border-r-0"
     >
-
-      <motion.div
-        initial={{
-          scale: 0.8,
-        }}
-        whileInView={{
-          scale: 1,
-        }}
-        viewport={{
-          once: true,
-        }}
-        transition={{
-          type: "spring",
-          stiffness: 200,
-        }}
-        className="text-3xl font-black text-[#F4C430] sm:text-4xl"
-      >
+      <div className="text-3xl font-black text-[#F6D76A] sm:text-4xl">
         {value}
-      </motion.div>
-
-      <p className="mt-2 text-xs font-medium text-slate-400 sm:text-sm">
+      </div>
+      <p className="mt-2 text-xs font-semibold text-slate-300 sm:text-sm">
         {label}
       </p>
-
     </motion.div>
   );
 }
 
-// ============================================================
-// SECTION HEADING
-// ============================================================
-
-function SectionHeading({
-  eyebrow,
-  title,
-  description,
-}) {
+function SectionHeading({ eyebrow, title, description }) {
   return (
     <motion.div
-      initial={{
-        opacity: 0,
-        y: 20,
-      }}
-      whileInView={{
-        opacity: 1,
-        y: 0,
-      }}
-      viewport={{
-        once: true,
-      }}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
       className="max-w-3xl"
     >
-
-      <p className="text-sm font-extrabold uppercase tracking-[0.18em] text-[#D89B00]">
+      <p className="text-xs sm:text-sm font-extrabold uppercase tracking-[0.18em] text-[#9A6900]">
         {eyebrow}
       </p>
-
-      <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
+      <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl text-[#172033]">
         {title}
       </h2>
-
-      <p className="mt-5 text-base leading-7 text-slate-600">
+      <p className="mt-4 text-base leading-7 text-slate-600">
         {description}
       </p>
-
     </motion.div>
   );
 }
 
-// ============================================================
-// FEATURE CARD
-// ============================================================
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-}) {
+function FeatureCard({ icon, title, description, link }) {
   return (
     <motion.div
       variants={fadeUp}
-      whileHover={{
-        y: -8,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 250,
-      }}
-      className="group rounded-[1.5rem] border border-slate-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-xl"
+      whileHover={{ y: -6 }}
+      transition={{ type: "spring", stiffness: 250 }}
+      className="group rounded-[1.5rem] border border-slate-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-xl flex flex-col justify-between"
     >
-
-      <motion.div
-        whileHover={{
-          rotate: 5,
-          scale: 1.08,
-        }}
-        className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF3B0] text-[#172033]"
-      >
-        {icon}
-      </motion.div>
-
-      <h3 className="mt-5 text-lg font-extrabold">
-        {title}
-      </h3>
-
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        {description}
-      </p>
-
-      <div className="mt-5 flex items-center gap-2 text-xs font-bold text-[#9A6900]">
-
-        Explore
-
-        <ArrowRight
-          size={14}
-          className="transition-transform group-hover:translate-x-1"
-        />
-
-      </div>
-
-    </motion.div>
-  );
-}
-
-// ============================================================
-// PROCESS CARD
-// ============================================================
-
-function ProcessCard({
-  number,
-  icon,
-  title,
-  text,
-}) {
-  return (
-    <motion.div
-      initial={{
-        opacity: 0,
-        y: 25,
-      }}
-      whileInView={{
-        opacity: 1,
-        y: 0,
-      }}
-      viewport={{
-        once: true,
-      }}
-      whileHover={{
-        y: -7,
-      }}
-      className="relative rounded-[1.5rem] border border-[#E7DFAF] bg-white p-6 shadow-sm transition-shadow hover:shadow-lg"
-    >
-
-      <div className="flex items-center justify-between">
-
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FFF3B0]">
+      <div>
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF3B0] text-[#172033]">
           {icon}
         </div>
-
-        <span className="text-4xl font-black text-[#F0E8BC]">
-          {number}
-        </span>
-
+        <h3 className="mt-5 text-lg font-extrabold text-[#172033]">
+          {title}
+        </h3>
+        <p className="mt-2.5 text-sm leading-6 text-slate-600">
+          {description}
+        </p>
       </div>
 
-      <h3 className="mt-6 text-lg font-extrabold">
-        {title}
-      </h3>
-
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        {text}
-      </p>
-
+      <Link
+        to={link}
+        className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold text-[#9A6900] group-hover:text-[#172033]"
+      >
+        Explore Feature
+        <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
+      </Link>
     </motion.div>
   );
 }
 
-// ============================================================
-// CHECK ROW
-// ============================================================
+function ProcessCard({ number, icon, title, text }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      whileHover={{ y: -5 }}
+      className="relative rounded-[1.5rem] border border-[#E7DFAF] bg-white p-6 shadow-sm transition-shadow hover:shadow-lg"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FFF3B0] text-[#172033]">
+          {icon}
+        </div>
+        <span className="text-3xl font-black text-[#E7DFAF]">
+          {number}
+        </span>
+      </div>
+      <h3 className="mt-5 text-lg font-extrabold text-[#172033]">
+        {title}
+      </h3>
+      <p className="mt-2.5 text-sm leading-6 text-slate-600">
+        {text}
+      </p>
+    </motion.div>
+  );
+}
 
 function CheckRow({ text }) {
   return (
-    <motion.div
-      whileHover={{
-        x: 5,
-      }}
-      className="flex items-center gap-3"
-    >
-
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#E6F5ED]">
-
-        <CheckCircle2
-          size={16}
-          className="text-[#16865B]"
-        />
-
+    <div className="flex items-center gap-3">
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#E6F5ED]">
+        <CheckCircle2 size={15} className="text-[#16865B]" />
       </div>
-
       <span className="text-sm font-semibold text-slate-700">
         {text}
       </span>
-
-    </motion.div>
-  );
-}
-
-// ============================================================
-// LEARNING PATH ITEM
-// ============================================================
-
-function LearningPathItem({
-  number,
-  title,
-  meta,
-  progress,
-  done = false,
-}) {
-  return (
-    <motion.div
-      whileHover={{
-        x: 4,
-      }}
-      className="rounded-xl border border-slate-100 p-4"
-    >
-
-      <div className="flex items-start gap-3">
-
-        <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-extrabold ${
-            done
-              ? "bg-[#E6F5ED] text-[#16865B]"
-              : "bg-[#FFF3B0] text-[#9A6900]"
-          }`}
-        >
-
-          {done ? (
-            <CheckCircle2 size={17} />
-          ) : (
-            number
-          )}
-
-        </div>
-
-        <div className="min-w-0 flex-1">
-
-          <div className="flex items-center justify-between gap-3">
-
-            <p className="text-sm font-bold">
-              {title}
-            </p>
-
-            <span className="text-xs font-bold text-slate-500">
-              {progress}%
-            </span>
-
-          </div>
-
-          <p className="mt-1 text-[11px] text-slate-400">
-            {meta}
-          </p>
-
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-
-            <motion.div
-              initial={{
-                width: 0,
-              }}
-              whileInView={{
-                width: `${progress}%`,
-              }}
-              viewport={{
-                once: true,
-              }}
-              transition={{
-                duration: 1,
-                delay: 0.1,
-              }}
-              className="h-full rounded-full bg-[#F4C430]"
-            />
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </motion.div>
-  );
-}
-
-// ============================================================
-// DARK MINI
-// ============================================================
-
-function DarkMini({
-  icon,
-  title,
-  value,
-}) {
-  return (
-    <motion.div
-      whileHover={{
-        y: -4,
-      }}
-      className="rounded-2xl border border-white/10 bg-white/5 p-4"
-    >
-
-      <div className="flex items-center gap-3">
-
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F4C430] text-[#172033]">
-          {icon}
-        </div>
-
-        <div>
-
-          <p className="text-xs text-slate-400">
-            {title}
-          </p>
-
-          <p className="mt-1 text-lg font-extrabold">
-            {value}
-          </p>
-
-        </div>
-
-      </div>
-
-    </motion.div>
-  );
-}
-
-// ============================================================
-// DARK SKILL
-// ============================================================
-
-function DarkSkill({ name, value }) {
-  return (
-    <div>
-
-      <div className="mb-2 flex items-center justify-between">
-
-        <span className="text-sm font-semibold">
-          {name}
-        </span>
-
-        <span className="text-sm font-extrabold text-[#F4C430]">
-          {value}%
-        </span>
-
-      </div>
-
-      <div className="h-2 overflow-hidden rounded-full bg-white/10">
-
-        <motion.div
-          initial={{
-            width: 0,
-          }}
-          whileInView={{
-            width: `${value}%`,
-          }}
-          viewport={{
-            once: true,
-          }}
-          transition={{
-            duration: 1,
-          }}
-          className="h-full rounded-full bg-[#F4C430]"
-        />
-
-      </div>
-
     </div>
   );
 }
 
-// ============================================================
-// ECOSYSTEM CARD
-// ============================================================
-
-function EcosystemCard({
-  icon,
-  title,
-  description,
-  link,
-  href,
-}) {
+function RoadmapItem({ phase, title, timeline, progress, done = false }) {
   return (
-    <motion.a
-      href={href}
-      whileHover={{
-        y: -7,
-      }}
-      className="group rounded-[1.5rem] border border-slate-100 bg-white p-7 shadow-sm transition-shadow hover:shadow-xl"
-    >
-
-      <div className="flex items-start justify-between">
-
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFF3B0]">
-          {icon}
+    <div className="rounded-xl border border-slate-100 p-3.5 transition-all hover:bg-slate-50">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span
+            className={`rounded-md px-2 py-0.5 text-[11px] font-extrabold ${
+              done
+                ? "bg-[#E6F5ED] text-[#16865B]"
+                : "bg-[#FFF3B0] text-[#9A6900]"
+            }`}
+          >
+            {phase}
+          </span>
+          <span className="text-xs font-bold text-[#172033] line-clamp-1">
+            {title}
+          </span>
         </div>
-
-        <ArrowRight
-          size={19}
-          className="text-slate-300 transition-all group-hover:translate-x-1 group-hover:text-[#172033]"
-        />
-
+        <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
+          {timeline}
+        </span>
       </div>
 
-      <h3 className="mt-6 text-xl font-extrabold">
-        {title}
-      </h3>
-
-      <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-        {description}
-      </p>
-
-      <div className="mt-6 text-sm font-bold text-[#9A6900]">
-        {link}
+      <div className="mt-2.5 flex items-center gap-3">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+          <motion.div
+            initial={{ width: 0 }}
+            whileInView={{ width: `${progress}%` }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className={`h-full rounded-full ${done ? "bg-[#16865B]" : "bg-[#F4C430]"}`}
+          />
+        </div>
+        <span className="text-[10px] font-extrabold text-slate-400">
+          {progress}%
+        </span>
       </div>
-
-    </motion.a>
+    </div>
   );
 }
 

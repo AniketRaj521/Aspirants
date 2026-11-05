@@ -1,1559 +1,1473 @@
-import { useMemo, useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
 import {
   ArrowRight,
   BarChart3,
   Brain,
+  BrainCircuit,
   CheckCircle2,
   ChevronDown,
   Download,
+  Filter,
+  GraduationCap,
   Lightbulb,
-  Loader2,
+  LineChart,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
   Target,
   TrendingUp,
   Trophy,
   Zap,
+  Sliders,
+  Layers,
+  ArrowUpRight,
+  BookOpen,
+  Award,
+  Play,
 } from "lucide-react";
-
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
 import { useNavigate } from "react-router-dom";
+import {
+  getRecommendationsForGaps,
+  loadRecommendations,
+} from "../../services/recommendationEngine";
+import { ExternalLink, Clock, Clock3, Star, Check } from "lucide-react";
+
 import toast from "react-hot-toast";
 
-import statwiseAnalysis from "../../data/statwiseAnalysis.js";
-import { getAssessmentResult } from "../../services/assessmentStore";
-
-// ============================================================
-// FALLBACK ROLE PROFILES
-// ============================================================
-
-const fallbackRoleProfiles = {
-  "Statistical Officer": {
-    role: "Statistical Officer",
-    domain: "Statistics & Data",
-    score: 65,
-    level: "Intermediate",
-    skills: [
-      {
-        name: "Statistics",
-        current: 82,
-        target: 85,
-        priority: "Low",
-      },
-      {
-        name: "Probability",
-        current: 38,
-        target: 80,
-        priority: "High",
-      },
-      {
-        name: "Data Analysis",
-        current: 58,
-        target: 75,
-        priority: "Medium",
-      },
-      {
-        name: "Data Visualization",
-        current: 76,
-        target: 70,
-        priority: "Low",
-      },
-      {
-        name: "Statistical Computing",
-        current: 64,
-        target: 65,
-        priority: "Low",
-      },
-    ],
-  },
-
-  "Data Analyst": {
-    role: "Data Analyst",
-    domain: "Data Analytics",
-    score: 72,
-    level: "Intermediate",
-    skills: [
-      {
-        name: "Statistics",
-        current: 72,
-        target: 85,
-        priority: "Medium",
-      },
-      {
-        name: "Probability",
-        current: 65,
-        target: 75,
-        priority: "Medium",
-      },
-      {
-        name: "Data Analysis",
-        current: 78,
-        target: 90,
-        priority: "Medium",
-      },
-      {
-        name: "Data Visualization",
-        current: 82,
-        target: 90,
-        priority: "Medium",
-      },
-      {
-        name: "Statistical Computing",
-        current: 68,
-        target: 80,
-        priority: "Medium",
-      },
-    ],
-  },
-
-  "Research Officer": {
-    role: "Research Officer",
-    domain: "Research & Analytics",
-    score: 69,
-    level: "Intermediate",
-    skills: [
-      {
-        name: "Statistics",
-        current: 76,
-        target: 88,
-        priority: "Medium",
-      },
-      {
-        name: "Probability",
-        current: 61,
-        target: 78,
-        priority: "Medium",
-      },
-      {
-        name: "Data Analysis",
-        current: 70,
-        target: 85,
-        priority: "Medium",
-      },
-      {
-        name: "Data Visualization",
-        current: 63,
-        target: 80,
-        priority: "High",
-      },
-      {
-        name: "Statistical Computing",
-        current: 59,
-        target: 75,
-        priority: "High",
-      },
-    ],
-  },
-
-  "Data Scientist": {
-    role: "Data Scientist",
-    domain: "AI & Data Science",
-    score: 74,
-    level: "Advanced",
-    skills: [
-      {
-        name: "Statistics",
-        current: 84,
-        target: 90,
-        priority: "Low",
-      },
-      {
-        name: "Probability",
-        current: 78,
-        target: 88,
-        priority: "Medium",
-      },
-      {
-        name: "Data Analysis",
-        current: 86,
-        target: 92,
-        priority: "Low",
-      },
-      {
-        name: "Data Visualization",
-        current: 79,
-        target: 88,
-        priority: "Medium",
-      },
-      {
-        name: "Statistical Computing",
-        current: 81,
-        target: 90,
-        priority: "Medium",
-      },
-    ],
-  },
-};
-
-// ============================================================
-// HELPERS
-// ============================================================
-
-function toDisplayText(value, fallback = "") {
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value);
-  }
-
-  if (value && typeof value === "object") {
-    return (
-      value.name ||
-      value.skill ||
-      value.title ||
-      value.label ||
-      value.role ||
-      fallback
-    );
-  }
-
-  return fallback;
-}
-
-function normalizeRole(rawRole) {
-  if (typeof rawRole === "string") {
-    return rawRole;
-  }
-
-  if (rawRole && typeof rawRole === "object") {
-    return (
-      rawRole.name ||
-      rawRole.role ||
-      rawRole.title ||
-      rawRole.label ||
-      "Statistical Officer"
-    );
-  }
-
-  return "Statistical Officer";
-}
-
-function getNumber(...values) {
-  for (const value of values) {
-    const number = Number(value);
-
-    if (Number.isFinite(number)) {
-      return number;
-    }
-  }
-
-  return null;
-}
-
-function getSkillArray(data) {
-  const possibleArrays = [
-    data?.skills,
-    data?.skill_gaps,
-    data?.skillGaps,
-    data?.gaps,
-    data?.skill_gap_analysis?.gaps,
-    data?.skillGapAnalysis?.gaps,
-    data?.analysis?.skills,
-  ];
-
-  for (const array of possibleArrays) {
-    if (Array.isArray(array)) {
-      return array;
-    }
-  }
-
-  return [];
-}
-
-function normalizeSkill(item, index) {
-  const name = toDisplayText(
-    item?.name ??
-      item?.skill ??
-      item?.skill_name ??
-      item?.title ??
-      item?.label,
-    `Skill ${index + 1}`
-  );
-
-  const current = getNumber(
-    item?.current,
-    item?.current_score,
-    item?.currentScore,
-    item?.score,
-    item?.current_level
-  );
-
-  const target = getNumber(
-    item?.target,
-    item?.target_score,
-    item?.targetScore,
-    item?.required,
-    item?.expected
-  );
-
-  const safeCurrent = current ?? 0;
-  const safeTarget = target ?? safeCurrent;
-
-  const gap = Math.max(0, safeTarget - safeCurrent);
-
-  let priority = toDisplayText(
-    item?.priority ?? item?.status,
-    gap >= 30
-      ? "High"
-      : gap >= 10
-      ? "Medium"
-      : "Low"
-  );
-
-  if (!["Critical", "High", "Medium", "Low"].includes(priority)) {
-    priority =
-      gap >= 30
-        ? "High"
-        : gap >= 10
-        ? "Medium"
-        : "Low";
-  }
-
-  return {
-    name,
-    current: Math.max(
-      0,
-      Math.min(100, safeCurrent)
-    ),
-    target: Math.max(
-      0,
-      Math.min(100, safeTarget)
-    ),
-    gap,
-    priority,
-    reason: toDisplayText(
-      item?.reason ?? item?.recommendation,
-      gap > 0
-        ? `Improve ${name} to reach the recommended competency level.`
-        : `${name} is currently meeting the target level.`
-    ),
-  };
-}
-
-function normalizeProfile(data) {
-  const rawRole =
-    data?.role ??
-    data?.employee?.role ??
-    data?.profile?.role ??
-    data?.user?.role;
-
-  const role = normalizeRole(rawRole);
-
-  const rawSkills = getSkillArray(data);
-
-  const skills = rawSkills.map(normalizeSkill);
-
-  let score = getNumber(
-    data?.competency?.competency_score,
-    data?.competency?.competencyScore,
-    data?.competency?.score,
-    data?.competency_score,
-    data?.competencyScore,
-    data?.score,
-    data?.profile?.competency_score
-  );
-
-  if (score === null && skills.length > 0) {
-    score =
-      skills.reduce(
-        (sum, skill) => sum + skill.current,
-        0
-      ) / skills.length;
-  }
-
-  score = Math.round(
-    Math.max(0, Math.min(100, score ?? 0))
-  );
-
-  const level =
-    toDisplayText(
-      data?.competency?.competency_level ??
-        data?.competency?.competencyLevel ??
-        data?.competency_level ??
-        data?.competencyLevel ??
-        data?.level,
-      score >= 85
-        ? "Expert"
-        : score >= 70
-        ? "Advanced"
-        : score >= 50
-        ? "Intermediate"
-        : "Beginner"
-    ) || "Intermediate";
-
-  const domain = toDisplayText(
-    data?.domain ??
-      data?.employee?.domain ??
-      data?.profile?.domain,
-    "Statistics & Data"
-  );
-
-  return {
-    role,
-    domain,
-    score,
-    level,
-    skills,
-  };
-}
-
-// ============================================================
-// BUILD PROFILE FROM LATEST ASSESSMENT
-// ============================================================
-
-function buildAssessmentProfile(baseProfile, assessment) {
-  if (!assessment) {
-    return baseProfile;
-  }
-
-  const skillScores =
-    assessment.skillScores || {};
-
-  if (
-    Object.keys(skillScores).length === 0 &&
-    !assessment.updatedCompetency
-  ) {
-    return baseProfile;
-  }
-
-  const updatedSkills = baseProfile.skills.map(
-    (skill) => {
-      const matchingScore =
-        skillScores[skill.name];
-
-      if (
-        matchingScore === undefined ||
-        matchingScore === null
-      ) {
-        return skill;
-      }
-
-      const current = Math.max(
-        0,
-        Math.min(100, Number(matchingScore))
-      );
-
-      const gap = Math.max(
-        0,
-        skill.target - current
-      );
-
-      const priority =
-        gap >= 30
-          ? "High"
-          : gap >= 10
-          ? "Medium"
-          : "Low";
-
-      return {
-        ...skill,
-        current,
-        gap,
-        priority,
-        reason:
-          gap > 0
-            ? `${skill.name} needs ${Math.round(
-                gap
-              )} percentage points of improvement to reach the target.`
-            : `${skill.name} has reached the recommended target.`,
-      };
-    }
-  );
-
-  const updatedScore = getNumber(
-    assessment.updatedCompetency
-  );
-
-  return {
-    ...baseProfile,
-    score:
-      updatedScore !== null
-        ? Math.round(updatedScore)
-        : baseProfile.score,
-    level:
-      updatedScore !== null
-        ? updatedScore >= 85
-          ? "Expert"
-          : updatedScore >= 70
-          ? "Advanced"
-          : updatedScore >= 50
-          ? "Intermediate"
-          : "Beginner"
-        : baseProfile.level,
-    skills: updatedSkills,
-  };
-}
-
-// ============================================================
-// PRIORITY STYLES
-// ============================================================
-
-function priorityClasses(priority) {
-  if (priority === "Critical") {
-    return "bg-red-100 text-red-800 border-red-300";
-  }
-
-  if (priority === "High") {
-    return "bg-red-50 text-red-700 border-red-200";
-  }
-
-  if (priority === "Medium") {
-    return "bg-amber-50 text-amber-700 border-amber-200";
-  }
-
-  return "bg-emerald-50 text-emerald-700 border-emerald-200";
-}
-
-// ============================================================
-// SKILL BAR
-// ============================================================
-
-function SkillBar({ skill }) {
-  const gap = Math.max(
-    0,
-    skill.target - skill.current
-  );
-
-  return (
-    <motion.div
-      layout
-      initial={{
-        opacity: 0,
-        y: 15,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
-      className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h3 className="font-bold text-[#172033]">
-              {skill.name}
-            </h3>
-
-            <span
-              className={`rounded-full border px-2.5 py-1 text-xs font-bold ${priorityClasses(
-                skill.priority
-              )}`}
-            >
-              {skill.priority}
-            </span>
-          </div>
-
-          <p className="mt-1 text-sm text-gray-500">
-            Current{" "}
-            {Math.round(skill.current)}% · Target{" "}
-            {Math.round(skill.target)}%
-          </p>
-        </div>
-
-        <div className="text-left sm:text-right">
-          <div className="text-2xl font-black text-[#172033]">
-            {Math.round(skill.current)}%
-          </div>
-
-          {gap > 0 ? (
-            <div className="text-xs font-semibold text-red-500">
-              {Math.round(gap)}% gap
-            </div>
-          ) : (
-            <div className="text-xs font-semibold text-emerald-600">
-              Target reached
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="relative mt-5 h-3 overflow-hidden rounded-full bg-gray-100">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{
-            width: `${skill.current}%`,
-          }}
-          transition={{
-            duration: 0.8,
-            ease: "easeOut",
-          }}
-          className="absolute left-0 top-0 h-full rounded-full bg-[#172033]"
-        />
-
-        <div
-          className="absolute top-0 h-full w-0.5 bg-[#D49B00]"
-          style={{
-            left: `${skill.target}%`,
-          }}
-        />
-      </div>
-
-      <p className="mt-3 text-sm leading-6 text-gray-500">
-        {skill.reason}
-      </p>
-    </motion.div>
-  );
-}
-
-// ============================================================
-// SCORE RING
-// ============================================================
-
-function ScoreRing({ score }) {
-  const radius = 52;
-
-  const circumference =
-    2 * Math.PI * radius;
-
-  const progress =
-    circumference -
-    (score / 100) * circumference;
-
-  return (
-    <div className="relative h-40 w-40">
-      <svg
-        viewBox="0 0 140 140"
-        className="h-full w-full -rotate-90"
-      >
-        <circle
-          cx="70"
-          cy="70"
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="12"
-          className="text-gray-100"
-        />
-
-        <motion.circle
-          cx="70"
-          cy="70"
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="12"
-          strokeLinecap="round"
-          className="text-[#D49B00]"
-          strokeDasharray={circumference}
-          initial={{
-            strokeDashoffset: circumference,
-          }}
-          animate={{
-            strokeDashoffset: progress,
-          }}
-          transition={{
-            duration: 1,
-            ease: "easeOut",
-          }}
-        />
-      </svg>
-
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-black text-[#172033]">
-          {score}%
-        </span>
-
-        <span className="text-xs font-semibold text-gray-500">
-          competency
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// MAIN COMPONENT
-// ============================================================
+import Navbar from "../../components/Navbar";
+import Footer from "../../components/Footer";
+import {
+  getStudentData,
+  DEFAULT_ROLES,
+  calculateSkillGapsForRole,
+  getRoleRadarComparison,
+  subscribeToStudentData,
+  updateStudentProfile,
+} from "../../services/studentStore";
 
 export default function SkillIntelligence() {
   const navigate = useNavigate();
-
-  // ----------------------------------------------------------
-  // LOAD LATEST ASSESSMENT
-  // ----------------------------------------------------------
-
-  const latestAssessment = useMemo(
-    () => getAssessmentResult(),
-    []
+  const [studentData, setStudentData] = useState(() => getStudentData());
+  const [selectedRoleId, setSelectedRoleId] = useState(
+    () => studentData.profile.targetRole || "ai_engineer"
   );
+  const [compareRoleId, setCompareRoleId] = useState("data_scientist");
+  const [comparisonMode, setComparisonMode] = useState(false);
+  const [filterSeverity, setFilterSeverity] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [activeChartTab, setActiveChartTab] = useState("radar"); // 'radar' | 'dual_bar'
+  const [activeMainView, setActiveMainView] = useState("gaps"); // 'gaps' | 'recommendations'
+  const [recSkillFilter, setRecSkillFilter] = useState("all");
+  const [recPlatformFilter, setRecPlatformFilter] = useState("all");
+  const [recDifficultyFilter, setRecDifficultyFilter] = useState("all");
+  const [recCertOnly, setRecCertOnly] = useState(false);
+  const [recSearchQuery, setRecSearchQuery] = useState("");
+  const [recMatchTypeFilter, setRecMatchTypeFilter] = useState("all"); // "all" | "direct" | "related"
 
-  // ----------------------------------------------------------
-  // BASE PROFILE
-  // ----------------------------------------------------------
 
-  const mainProfile = useMemo(
-    () =>
-      normalizeProfile(
-        statwiseAnalysis
-      ),
-    []
-  );
-
-  // ----------------------------------------------------------
-  // LIVE PROFILE
-  // ----------------------------------------------------------
-
-  const liveProfile = useMemo(
-    () =>
-      buildAssessmentProfile(
-        mainProfile,
-        latestAssessment
-      ),
-    [mainProfile, latestAssessment]
-  );
-
-  // ----------------------------------------------------------
-  // AVAILABLE ROLES
-  // ----------------------------------------------------------
-
-  const availableRoles = useMemo(() => {
-    const roles = Object.keys(
-      fallbackRoleProfiles
-    );
-
-    if (
-      mainProfile.role &&
-      !roles.includes(mainProfile.role)
-    ) {
-      roles.unshift(mainProfile.role);
-    }
-
-    return roles;
-  }, [mainProfile.role]);
-
-  // ----------------------------------------------------------
-  // STATE
-  // ----------------------------------------------------------
-
-  const [selectedRole, setSelectedRole] =
-    useState(mainProfile.role);
-
-  const [showRoleMenu, setShowRoleMenu] =
-    useState(false);
-
-  const [isAnalyzing, setIsAnalyzing] =
-    useState(false);
-
-  // ----------------------------------------------------------
-  // SELECT PROFILE
-  // ----------------------------------------------------------
-
-  const profile = useMemo(() => {
-    if (
-      selectedRole === mainProfile.role
-    ) {
-      return liveProfile;
-    }
-
-    return (
-      fallbackRoleProfiles[selectedRole] ||
-      mainProfile
-    );
-  }, [
-    selectedRole,
-    mainProfile,
-    liveProfile,
-  ]);
-
-  const isLiveAnalysis =
-    selectedRole === mainProfile.role;
-
-  // ----------------------------------------------------------
-  // SKILL GAPS
-  // ----------------------------------------------------------
-
-  const skillGaps = useMemo(() => {
-    return [...profile.skills].sort(
-      (a, b) => b.gap - a.gap
-    );
-  }, [profile.skills]);
-
-  const highestGap = skillGaps[0];
-
-  // ----------------------------------------------------------
-  // KPI CALCULATIONS
-  // ----------------------------------------------------------
-
-  const completedSkills =
-    profile.skills.filter(
-      (skill) =>
-        skill.current >= skill.target
-    ).length;
-
-  const averageSkill =
-    profile.skills.length
-      ? Math.round(
-          profile.skills.reduce(
-            (sum, skill) =>
-              sum + skill.current,
-            0
-          ) / profile.skills.length
-        )
-      : 0;
-
-  // ----------------------------------------------------------
-  // LATEST ASSESSMENT INFO
-  // ----------------------------------------------------------
-
-  const hasAssessment =
-    Boolean(latestAssessment);
-
-  const assessmentScore = getNumber(
-    latestAssessment?.score
-  );
-
-  const assessmentPriority =
-    latestAssessment?.priority ||
-    latestAssessment?.weakestSkill ||
-    highestGap?.name;
-
-  // ----------------------------------------------------------
-  // ANALYZE
-  // ----------------------------------------------------------
-
-  const handleAnalyze = () => {
-    setIsAnalyzing(true);
-
-    setTimeout(() => {
-      setIsAnalyzing(false);
-
-      toast.success(
-        "Skill intelligence analysis refreshed."
-      );
-    }, 1000);
-  };
-
-  // ----------------------------------------------------------
-  // EXPORT
-  // ----------------------------------------------------------
-
-  const handleExport = () => {
-    const exportData = {
-      platform: "STATWISE AI",
-      generatedAt:
-        new Date().toISOString(),
-
-      role: profile.role,
-      domain: profile.domain,
-
-      competency: {
-        score: profile.score,
-        level: profile.level,
-      },
-
-      skills: profile.skills,
-
-      latestAssessment:
-        latestAssessment || null,
-    };
-
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          exportData,
-          null,
-          2
-        ),
-      ],
-      {
-        type: "application/json",
+  // Subscribe to live student updates
+  useEffect(() => {
+    const unsub = subscribeToStudentData((data) => {
+      setStudentData(data);
+      if (!selectedRoleId) {
+        setSelectedRoleId(data.profile.targetRole || "ai_engineer");
       }
+    });
+    return unsub;
+  }, [selectedRoleId]);
+
+  const { profile, skills } = studentData;
+
+  // Selected role object & gap analysis
+  const currentRole = useMemo(() => {
+    return (
+      DEFAULT_ROLES.find((r) => r.id === selectedRoleId) || DEFAULT_ROLES[0]
     );
+  }, [selectedRoleId]);
 
-    const url =
-      URL.createObjectURL(blob);
+  const roleGaps = useMemo(() => {
+    return calculateSkillGapsForRole(selectedRoleId, skills);
+  }, [selectedRoleId, skills]);
 
-    const anchor =
-      document.createElement("a");
-
-    anchor.href = url;
-
-    anchor.download =
-      "statwise-skill-intelligence.json";
-
-    document.body.appendChild(anchor);
-
-    anchor.click();
-
-    document.body.removeChild(anchor);
-
-    URL.revokeObjectURL(url);
-
-    toast.success(
-      "Skill intelligence report exported."
+  // Comparison role gaps (for side-by-side mode)
+  const compareRole = useMemo(() => {
+    return (
+      DEFAULT_ROLES.find((r) => r.id === compareRoleId) || DEFAULT_ROLES[1]
     );
+  }, [compareRoleId]);
+
+  const compareGaps = useMemo(() => {
+    return calculateSkillGapsForRole(compareRoleId, skills);
+  }, [compareRoleId, skills]);
+
+  // Radar chart data for primary role
+  const radarData = useMemo(() => {
+    return getRoleRadarComparison(selectedRoleId);
+  }, [selectedRoleId, studentData]);
+
+  // Dual-bar chart data
+  const barData = useMemo(() => {
+    return roleGaps.gaps.map((g) => ({
+      name: g.skill.length > 15 ? g.skill.slice(0, 13) + "…" : g.skill,
+      fullName: g.skill,
+      "Your Score": g.isAssessed ? g.currentScore : 0,
+      "Target Score": g.targetScore,
+      Gap: g.isAssessed ? g.gap : g.targetScore,
+      category: g.category,
+      isAssessed: g.isAssessed
+    }));
+  }, [roleGaps]);
+
+  // Filtered gaps list
+    // AI-Powered Course & Certification Recommendations Data
+  const recommendationsData = useMemo(() => {
+    return getRecommendationsForGaps(selectedRoleId, roleGaps.gaps, currentRole);
+  }, [selectedRoleId, roleGaps.gaps, currentRole]);
+
+  // Filtered recommendations list
+  const filteredRecommendations = useMemo(() => {
+    const list = recommendationsData.recommendations || [];
+    return list.filter((rec) => {
+      if (recMatchTypeFilter !== "all" && rec.match_type !== recMatchTypeFilter) {
+        return false;
+      }
+      if (recSkillFilter !== "all" && rec.matched_skill !== recSkillFilter) {
+        return false;
+      }
+      if (recPlatformFilter !== "all") {
+        const p = (rec.provider || "").toLowerCase();
+        if (recPlatformFilter === "edx" && !p.includes("edx") && !p.includes("harvard") && !p.includes("mit")) return false;
+        if (recPlatformFilter === "freecodecamp" && !p.includes("freecodecamp")) return false;
+        if (recPlatformFilter === "fastai" && !p.includes("fast")) return false;
+        if (recPlatformFilter === "aws" && !p.includes("aws") && !p.includes("google") && !p.includes("gcp") && !p.includes("cloud")) return false;
+        if (!["edx", "freecodecamp", "fastai", "aws"].includes(recPlatformFilter) && !p.includes(recPlatformFilter.toLowerCase())) return false;
+      }
+      if (recDifficultyFilter !== "all" && !rec.difficulty.toLowerCase().includes(recDifficultyFilter.toLowerCase())) {
+        return false;
+      }
+      if (recCertOnly && !rec.has_certificate) {
+        return false;
+      }
+      if (recSearchQuery.trim()) {
+        const q = recSearchQuery.toLowerCase();
+        const matchesTitle = rec.title.toLowerCase().includes(q);
+        const matchesInst = (rec.institution || "").toLowerCase().includes(q);
+        const matchesInstructor = (rec.instructor || "").toLowerCase().includes(q);
+        const matchesOverview = (rec.overview || "").toLowerCase().includes(q);
+        const matchesSkills = (rec.skills_addressed || []).some((s) => s.toLowerCase().includes(q));
+        if (!matchesTitle && !matchesInst && !matchesInstructor && !matchesOverview && !matchesSkills) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [recommendationsData, recMatchTypeFilter, recSkillFilter, recPlatformFilter, recDifficultyFilter, recCertOnly, recSearchQuery]);
+
+  const handleSwitchToRecommendationsForSkill = (skillName) => {
+    setActiveMainView("recommendations");
+    setRecSkillFilter(skillName);
+    toast.success(`Showing AI recommended courses for ${skillName}`, { icon: "🎯" });
   };
 
-  // ==========================================================
-  // UI
-  // ==========================================================
+  const handleAddCourseToRoadmap = (course) => {
+    toast.success(`"${course.short_title}" added to your personalized learning roadmap!`, {
+      icon: "🗺️",
+      duration: 3500,
+    });
+  };
+
+  const filteredGaps = useMemo(() => {
+    return roleGaps.gaps.filter((g) => {
+      if (filterSeverity === "critical" && g.severity !== "Critical Gap")
+        return false;
+      if (filterSeverity === "high" && g.severity !== "High Priority Gap" && g.severity !== "High Gap")
+        return false;
+      if (filterSeverity === "moderate" && g.severity !== "Moderate Gap")
+        return false;
+      if (filterSeverity === "proficient" && g.severity !== "Benchmark Met" && g.severity !== "Proficient")
+        return false;
+      if (filterSeverity === "unassessed" && g.isAssessed)
+        return false;
+
+      if (filterCategory === "technical" && g.category !== "Technical")
+        return false;
+      if (filterCategory === "professional" && g.category !== "Professional")
+        return false;
+
+      return true;
+    });
+  }, [roleGaps, filterSeverity, filterCategory]);
+
+  // Set as target role in student profile
+  const handleSetAsTargetRole = () => {
+    updateStudentProfile({ targetRole: selectedRoleId });
+    toast.success(`${currentRole.title} set as your primary target career role!`);
+  };
 
   return (
-    <div className="min-h-screen bg-[#fffdf5] text-[#172033]">
-      {/* TOP STRIP */}
+    <div className="min-h-screen bg-[#FBF8EF] text-[#172033]">
+      <Navbar dashboard={true} />
 
-      <div className="bg-[#172033] px-4 py-2 text-xs text-white sm:px-6 lg:px-10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <span className="hidden sm:block">
-            STATWISE AI · AI-Powered Skill
-            Intelligence Platform
-          </span>
+      {/* Header Banner */}
+      <section className="relative overflow-hidden border-b border-[#EAD8A6] bg-gradient-to-r from-[#172033] via-[#1E2B45] to-[#172033] py-12 text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(#F6D76A_1px,transparent_1px)] [background-size:24px_24px] opacity-10" />
 
-          <div className="ml-auto flex items-center gap-4">
-            <span>Accessibility</span>
-            <span>Help</span>
-            <span>English</span>
-          </div>
-        </div>
-      </div>
-
-      {/* HEADER */}
-
-      <header className="border-b border-black/10 bg-[#F6D76A]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-10">
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center gap-3"
-          >
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#172033] text-white shadow-sm">
-              <Brain size={23} />
-            </div>
-
-            <div className="text-left">
-              <div className="text-xl font-black tracking-tight">
-                STATWISE AI
-              </div>
-
-              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#172033]/70">
-                Skill Intelligence
-              </div>
-            </div>
-          </button>
-
-          <div className="hidden items-center gap-2 md:flex">
-            <button
-              onClick={() =>
-                navigate("/dashboard")
-              }
-              className="rounded-xl px-4 py-2 text-sm font-bold hover:bg-white/30"
-            >
-              Dashboard
-            </button>
-
-            <button
-              onClick={() =>
-                navigate("/learning")
-              }
-              className="rounded-xl px-4 py-2 text-sm font-bold hover:bg-white/30"
-            >
-              Learning
-            </button>
-
-            <button
-              onClick={() =>
-                navigate("/assessments")
-              }
-              className="rounded-xl px-4 py-2 text-sm font-bold hover:bg-white/30"
-            >
-              Assessments
-            </button>
-
-            <button
-              onClick={() =>
-                navigate("/profile")
-              }
-              className="rounded-xl bg-[#172033] px-4 py-2 text-sm font-bold text-white"
-            >
-              My Profile
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* HERO */}
-
-      <section className="border-b border-black/10 bg-[#fffdf5]">
-        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-10 lg:py-16">
-          <div className="grid items-center gap-10 lg:grid-cols-[1.3fr_0.7fr]">
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
             <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#D49B00]/30 bg-[#F6D76A]/30 px-4 py-2 text-sm font-bold text-[#6B5000]">
-                <Zap size={15} />
-                AI Skill Intelligence
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#F6D76A] text-xs font-black text-[#172033]">
+                  ⚡
+                </span>
+                <span className="text-xs font-bold uppercase tracking-wider text-[#F6D76A]">
+                  STATWISE Skill Intelligence Engine
+                </span>
+              </div>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                Role-Based Skill Gap Analysis & Benchmark Comparison
+              </h1>
+              <p className="mt-2 max-w-2xl text-xs text-gray-300 sm:text-sm">
+                Identify exact competency gaps between your student profile and required industry benchmarks for any selected career role.
+              </p>
+            </div>
+
+            {/* Target Role Selector & Set Target Button */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-2 backdrop-blur-md">
+                <select
+                  value={selectedRoleId}
+                  onChange={(e) => setSelectedRoleId(e.target.value)}
+                  className="cursor-pointer appearance-none rounded-xl bg-[#172033] px-4 py-2.5 text-xs font-bold text-[#F6D76A] outline-none border border-white/20"
+                >
+                  {DEFAULT_ROLES.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.title}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <h1 className="max-w-4xl text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl">
-                Understand your skills.
-                <span className="block text-[#9A7100]">
-                  Close the gaps.
-                </span>
-              </h1>
+              <button
+                onClick={() => navigate("/assessments")}
+                className="flex items-center gap-2 rounded-xl bg-[#F6D76A] px-4 py-2.5 text-xs font-black text-[#172033] shadow-md hover:bg-yellow-400 transition"
+              >
+                <Zap size={14} />
+                Take Skill Assessment
+              </button>
 
-              <p className="mt-5 max-w-2xl text-base leading-7 text-gray-600 sm:text-lg">
-                STATWISE AI analyzes competency
-                levels, identifies priority skill
-                gaps, and creates a personalized
-                learning path aligned with your role.
+              {profile.targetRole !== selectedRoleId && (
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleSetAsTargetRole}
+                  className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-xs font-bold text-white hover:bg-white/20 transition"
+                >
+                  Set as Target Role
+                </motion.button>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Metrics Ribbon */}
+          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                Role Readiness Match
               </p>
-
-              <div className="mt-7 flex flex-wrap gap-3">
-                <button
-                  onClick={() =>
-                    navigate("/learning")
-                  }
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#172033] px-5 py-3.5 font-bold text-white transition hover:-translate-y-0.5 hover:shadow-lg"
-                >
-                  View Learning Path
-                  <ArrowRight size={18} />
-                </button>
-
-                <button
-                  onClick={handleAnalyze}
-                  disabled={isAnalyzing}
-                  className="inline-flex items-center gap-2 rounded-xl border border-black/15 bg-white px-5 py-3.5 font-bold transition hover:bg-gray-50 disabled:opacity-60"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2
-                        size={18}
-                        className="animate-spin"
-                      />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <TrendingUp size={18} />
-                      Re-analyze Skills
-                    </>
-                  )}
-                </button>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-[#F6D76A]">
+                  {roleGaps.readinessPercentage}%
+                </span>
+                <span className="text-xs text-gray-300">
+                  {roleGaps.readinessPercentage >= 75
+                    ? "Job Ready"
+                    : roleGaps.readinessPercentage >= 55
+                    ? "Developing"
+                    : "Foundational"}
+                </span>
+              </div>
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${roleGaps.readinessPercentage}%` }}
+                  transition={{ duration: 1 }}
+                  className="h-full bg-gradient-to-r from-amber-400 to-[#F6D76A]"
+                />
               </div>
             </div>
 
-            {/* SCORE */}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                Critical Blockers
+              </p>
+              <p className="mt-1 text-2xl font-black text-rose-400">
+                {roleGaps.criticalCount} Skills
+              </p>
+              <p className="mt-1 text-[11px] text-gray-400">
+                Gaps &gt; 25 points to bridge
+              </p>
+            </div>
 
-            <div className="flex justify-center lg:justify-end">
-              <motion.div
-                initial={{
-                  opacity: 0,
-                  scale: 0.9,
-                }}
-                animate={{
-                  opacity: 1,
-                  scale: 1,
-                }}
-                className="relative flex w-full max-w-sm items-center justify-center overflow-hidden rounded-3xl border border-black/10 bg-white p-8 shadow-xl"
-              >
-                <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#F6D76A]/40 blur-2xl" />
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                High Priority Gaps
+              </p>
+              <p className="mt-1 text-2xl font-black text-amber-400">
+                {roleGaps.highCount} Skills
+              </p>
+              <p className="mt-1 text-[11px] text-gray-400">
+                Gaps 15-25 points to bridge
+              </p>
+            </div>
 
-                <div className="relative">
-                  <ScoreRing
-                    score={profile.score}
-                  />
-
-                  <div className="mt-4 text-center">
-                    <p className="font-black">
-                      {profile.level}
-                    </p>
-
-                    <p className="mt-1 text-sm text-gray-500">
-                      Overall competency
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                Market Salary Benchmark
+              </p>
+              <p className="mt-1 text-lg font-black text-emerald-400">
+                {currentRole.averageSalary}
+              </p>
+              <p className="mt-1 text-[11px] text-gray-400">
+                Demand: {currentRole.marketDemand}
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* MAIN */}
+      {/* Main Analysis Section */}
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-10">
+        {/* Toggle Mode: Single Role Deep Dive vs Dual-Role Comparison */}
+        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-[#E8DAB2] bg-white p-5 shadow-sm sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <span className="rounded-xl bg-amber-100 p-2 text-[#9A6900]">
+              <Sliders size={18} />
+            </span>
+            <div>
+              <h2 className="text-base font-black text-[#172033]">
+                Role Comparison Mode
+              </h2>
+              <p className="text-xs text-gray-500">
+                Compare your competencies against two distinct career paths side-by-side.
+              </p>
+            </div>
+          </div>
 
-      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-10">
-        {/* LIVE ASSESSMENT STATUS */}
-
-        {hasAssessment &&
-          isLiveAnalysis && (
-            <motion.div
-              initial={{
-                opacity: 0,
-                y: -10,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              className="mb-8 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50"
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setComparisonMode(!comparisonMode)}
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
+                comparisonMode
+                  ? "bg-[#172033] text-white"
+                  : "border border-gray-200 bg-[#FBF8EF] text-gray-700 hover:bg-gray-100"
+              }`}
             >
-              <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-xl bg-emerald-100 p-2.5 text-emerald-700">
-                    <CheckCircle2
-                      size={21}
-                    />
-                  </div>
+              {comparisonMode ? "✓ Side-by-Side Active" : "+ Compare with Second Role"}
+            </button>
 
-                  <div>
-                    <p className="font-black text-emerald-900">
-                      Latest adaptive assessment connected
-                    </p>
-
-                    <p className="mt-1 text-sm leading-6 text-emerald-800/80">
-                      Your competency profile has
-                      been updated using the latest
-                      assessment performance.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {assessmentScore !== null && (
-                    <span className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-black text-emerald-700">
-                      Assessment:{" "}
-                      {Math.round(
-                        assessmentScore
-                      )}
-                      %
-                    </span>
-                  )}
-
-                  {assessmentPriority && (
-                    <span className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-black text-emerald-700">
-                      Priority:{" "}
-                      {assessmentPriority}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-        {/* ROLE SELECTOR */}
-
-        <section className="mb-8 rounded-3xl border border-black/10 bg-white p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <Target
-                  size={19}
-                  className="text-[#9A7100]"
-                />
-
-                <h2 className="text-xl font-black">
-                  Role & Competency Profile
-                </h2>
-              </div>
-
-              <p className="mt-1 text-sm text-gray-500">
-                Select a role to understand the
-                competency expectations and identify
-                development priorities.
-              </p>
-            </div>
-
-            <div className="relative w-full lg:w-80">
-              <button
-                onClick={() =>
-                  setShowRoleMenu(
-                    (value) => !value
-                  )
-                }
-                className="flex w-full items-center justify-between rounded-xl border border-black/15 bg-[#fffdf5] px-4 py-3 text-left font-bold"
+            {comparisonMode && (
+              <select
+                value={compareRoleId}
+                onChange={(e) => setCompareRoleId(e.target.value)}
+                className="rounded-xl border border-gray-300 bg-[#FBF8EF] px-3 py-2 text-xs font-bold text-[#172033] outline-none"
               >
-                <span>{selectedRole}</span>
-
-                <ChevronDown
-                  size={18}
-                  className={`transition ${
-                    showRoleMenu
-                      ? "rotate-180"
-                      : ""
-                  }`}
-                />
-              </button>
-
-              <AnimatePresence>
-                {showRoleMenu && (
-                  <motion.div
-                    initial={{
-                      opacity: 0,
-                      y: -5,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      y: 0,
-                    }}
-                    exit={{
-                      opacity: 0,
-                      y: -5,
-                    }}
-                    className="absolute left-0 right-0 z-20 mt-2 overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-xl"
-                  >
-                    {availableRoles.map(
-                      (role) => (
-                        <button
-                          key={role}
-                          onClick={() => {
-                            setSelectedRole(
-                              role
-                            );
-                            setShowRoleMenu(
-                              false
-                            );
-                          }}
-                          className={`flex w-full rounded-lg px-3 py-3 text-left text-sm font-semibold transition hover:bg-[#F6D76A]/30 ${
-                            selectedRole === role
-                              ? "bg-[#F6D76A]/40"
-                              : ""
-                          }`}
-                        >
-                          {role}
-                        </button>
-                      )
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                {DEFAULT_ROLES.filter((r) => r.id !== selectedRoleId).map((r) => (
+                  <option key={r.id} value={r.id}>
+                    Compare with: {r.title}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-        </section>
-
-        {/* STATUS */}
-
-        <div className="mb-8 flex flex-col gap-4 rounded-2xl border border-[#D49B00]/20 bg-[#F6D76A]/20 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 rounded-lg bg-[#F6D76A] p-2">
-              <Brain size={18} />
-            </div>
-
-            <div>
-              <p className="font-bold">
-                {isLiveAnalysis
-                  ? hasAssessment
-                    ? "AI analysis updated from latest assessment"
-                    : "AI analysis connected"
-                  : "Role profile preview"}
-              </p>
-
-              <p className="mt-1 text-sm leading-6 text-gray-600">
-                {isLiveAnalysis
-                  ? hasAssessment
-                    ? "Your latest adaptive assessment is now influencing competency and skill-gap analysis."
-                    : "The selected profile is using the STATWISE AI competency analysis data."
-                  : "This role uses the built-in prototype role profile. Connect organizational data for production personalization."}
-              </p>
-            </div>
-          </div>
-
-          <span className="whitespace-nowrap rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-bold">
-            {profile.domain}
-          </span>
         </div>
 
-        {/* KPI */}
+        {/* SIDE-BY-SIDE ROLE COMPARISON CARDS (if active) */}
+        {comparisonMode && (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {/* Role 1 */}
+            <div className="rounded-3xl border-2 border-[#172033] bg-white p-6 shadow-md">
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-[#172033] px-3 py-1 text-[11px] font-bold text-white">
+                  Primary Role
+                </span>
+                <span className="text-xl font-black text-[#9A6900]">
+                  {roleGaps.readinessPercentage}% Match
+                </span>
+              </div>
+              <h3 className="mt-3 text-xl font-black text-[#172033]">
+                {currentRole.title}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">{currentRole.description}</p>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            {
-              icon: Trophy,
-              label: "Competency Score",
-              value: `${profile.score}%`,
-              note: profile.level,
-            },
-            {
-              icon: BarChart3,
-              label: "Average Skill",
-              value: `${averageSkill}%`,
-              note: "Across mapped skills",
-            },
-            {
-              icon: Target,
-              label: "Skills on Target",
-              value: `${completedSkills}/${profile.skills.length}`,
-              note: "Target competency",
-            },
-            {
-              icon: TrendingUp,
-              label: "Largest Gap",
-              value: highestGap
-                ? `${Math.round(
-                    highestGap.gap
-                  )}%`
-                : "0%",
-              note:
-                highestGap?.name ||
-                "No major gap",
-            },
-          ].map((card, index) => {
-            const Icon = card.icon;
+              <div className="mt-4 space-y-2 border-t border-gray-100 pt-3">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Critical Gaps:</span>
+                  <span className="font-bold text-rose-600">
+                    {roleGaps.criticalCount} skills
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Market Demand:</span>
+                  <span className="font-bold text-[#172033]">
+                    {currentRole.marketDemand}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Average Salary:</span>
+                  <span className="font-bold text-emerald-600">
+                    {currentRole.averageSalary}
+                  </span>
+                </div>
+              </div>
 
-            return (
-              <motion.div
-                key={card.label}
-                initial={{
-                  opacity: 0,
-                  y: 15,
+              <button
+                onClick={() => {
+                  setSelectedRoleId(currentRole.id);
+                  setComparisonMode(false);
                 }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                }}
-                transition={{
-                  delay: index * 0.05,
-                }}
-                className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                className="mt-6 w-full rounded-xl bg-[#172033] py-2.5 text-xs font-bold text-white hover:bg-[#263553]"
               >
-                <div className="flex items-center justify-between">
-                  <div className="rounded-xl bg-[#F6D76A]/40 p-2.5">
-                    <Icon size={20} />
-                  </div>
+                Focus on this Role
+              </button>
+            </div>
 
-                  <span className="text-2xl font-black">
-                    {card.value}
+            {/* Role 2 */}
+            <div className="rounded-3xl border-2 border-amber-300 bg-white p-6 shadow-md">
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-900">
+                  Alternative Career Path
+                </span>
+                <span className="text-xl font-black text-[#9A6900]">
+                  {compareGaps.readinessPercentage}% Match
+                </span>
+              </div>
+              <h3 className="mt-3 text-xl font-black text-[#172033]">
+                {compareRole.title}
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">{compareRole.description}</p>
+
+              <div className="mt-4 space-y-2 border-t border-gray-100 pt-3">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Critical Gaps:</span>
+                  <span className="font-bold text-rose-600">
+                    {compareGaps.criticalCount} skills
                   </span>
                 </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Market Demand:</span>
+                  <span className="font-bold text-[#172033]">
+                    {compareRole.marketDemand}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Average Salary:</span>
+                  <span className="font-bold text-emerald-600">
+                    {compareRole.averageSalary}
+                  </span>
+                </div>
+              </div>
 
-                <p className="mt-4 font-bold">
-                  {card.label}
-                </p>
+              <button
+                onClick={() => {
+                  setSelectedRoleId(compareRole.id);
+                  setComparisonMode(false);
+                  toast.success(`Switched target role to ${compareRole.title}!`);
+                }}
+                className="mt-6 w-full rounded-xl bg-[#F6D76A] py-2.5 text-xs font-black text-[#172033] hover:bg-yellow-400"
+              >
+                Switch to this Role
+              </button>
+            </div>
+          </div>
+        )}
 
-                <p className="mt-1 text-sm text-gray-500">
-                  {card.note}
-                </p>
-              </motion.div>
-            );
-          })}
-        </section>
-
-        {/* SKILLS */}
-
-        <section className="mt-10">
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        {/* VISUAL BENCHMARK COMPARISON: RADAR & DUAL-BAR CHARTS */}
+        <div className="rounded-3xl border border-[#E8DAB2] bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-center">
             <div>
-              <div className="flex items-center gap-2">
-                <BarChart3
-                  size={20}
-                  className="text-[#9A7100]"
-                />
-
-                <h2 className="text-2xl font-black">
-                  Skill Intelligence
-                </h2>
-              </div>
-
-              <p className="mt-1 text-sm text-gray-500">
-                Current capability compared with the
-                recommended target.
+              <h2 className="text-xl font-black text-[#172033] flex items-center gap-2">
+                <BrainCircuit size={20} className="text-[#9A6900]" />
+                Role Competency Radar & Dual-Bar Benchmark Comparison
+              </h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Visualizing student proficiencies against target benchmarks for{" "}
+                <strong>{currentRole.title}</strong>
               </p>
             </div>
 
-            <button
-              onClick={handleExport}
-              className="inline-flex w-fit items-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-bold hover:bg-gray-50"
-            >
-              <Download size={17} />
-              Export Report
-            </button>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            {skillGaps.map((skill) => (
-              <SkillBar
-                key={skill.name}
-                skill={skill}
-              />
-            ))}
-          </div>
-
-          {skillGaps.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-black/20 bg-white p-10 text-center">
-              <p className="font-bold">
-                No skill data available yet.
-              </p>
-
-              <p className="mt-2 text-sm text-gray-500">
-                Complete an assessment to generate
-                your competency profile.
-              </p>
-            </div>
-          )}
-        </section>
-
-        {/* AI PRIORITY */}
-
-        <section className="mt-10 grid gap-6 lg:grid-cols-[1fr_0.8fr]">
-          <div className="rounded-3xl border border-black/10 bg-[#172033] p-7 text-white shadow-lg">
-            <div className="flex items-start gap-4">
-              <div className="rounded-2xl bg-[#F6D76A] p-3 text-[#172033]">
-                <Lightbulb size={24} />
-              </div>
-
-              <div>
-                <p className="text-sm font-bold uppercase tracking-wider text-[#F6D76A]">
-                  AI Priority Recommendation
-                </p>
-
-                <h3 className="mt-2 text-2xl font-black">
-                  {highestGap
-                    ? `Focus on ${highestGap.name}`
-                    : "Keep building your skills"}
-                </h3>
-
-                <p className="mt-3 max-w-xl leading-7 text-white/70">
-                  {highestGap
-                    ? `${highestGap.name} has the largest identified competency gap at ${Math.round(
-                        highestGap.gap
-                      )} percentage points. Strengthening this skill can have the greatest immediate impact on the selected role profile.`
-                    : "Your current skill profile is close to the mapped targets. Continue with assessments and personalized learning."}
-                </p>
-
-                <button
-                  onClick={() =>
-                    navigate("/learning")
-                  }
-                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#F6D76A] px-5 py-3 font-black text-[#172033] hover:shadow-lg"
-                >
-                  Build My Learning Path
-                  <ArrowRight size={18} />
-                </button>
-              </div>
+            {/* Chart Switcher */}
+            <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-[#FBF8EF] p-1">
+              <button
+                onClick={() => setActiveChartTab("radar")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  activeChartTab === "radar"
+                    ? "bg-[#172033] text-white shadow-xs"
+                    : "text-gray-600 hover:text-[#172033]"
+                }`}
+              >
+                Radar (Spider)
+              </button>
+              <button
+                onClick={() => setActiveChartTab("dual_bar")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  activeChartTab === "dual_bar"
+                    ? "bg-[#172033] text-white shadow-xs"
+                    : "text-gray-600 hover:text-[#172033]"
+                }`}
+              >
+                Dual-Bar Comparison
+              </button>
             </div>
           </div>
 
-          {/* NEXT ACTIONS */}
-
-          <div className="rounded-3xl border border-black/10 bg-white p-7 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-[#F6D76A]/40 p-3">
-                <CheckCircle2 size={22} />
-              </div>
-
-              <div>
-                <h3 className="font-black">
-                  Next best actions
-                </h3>
-
-                <p className="text-sm text-gray-500">
-                  Recommended by your skill profile
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 space-y-3">
-              {[
-                highestGap
-                  ? `Improve ${highestGap.name}`
-                  : "Complete a competency assessment",
-
-                "Complete recommended learning modules",
-
-                "Retake assessment to measure progress",
-              ].map((item, index) => (
-                <div
-                  key={item}
-                  className="flex items-center gap-3 rounded-xl bg-[#fffdf5] p-3"
-                >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F6D76A] text-xs font-black">
-                    {index + 1}
-                  </div>
-
-                  <span className="text-sm font-semibold">
-                    {item}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ASSESSMENT CONNECTION */}
-
-        {hasAssessment &&
-          isLiveAnalysis && (
-            <motion.section
-              initial={{
-                opacity: 0,
-                y: 20,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              className="mt-10 overflow-hidden rounded-3xl bg-[#F6D76A] p-7"
-            >
-              <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Zap
-                      size={20}
-                      className="text-[#172033]"
+          {/* Chart Rendering Container */}
+          <div className="mt-6">
+            {activeChartTab === "radar" ? (
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
+                    <PolarGrid stroke="#E8DAB2" />
+                    <PolarAngleAxis
+                      dataKey="skill"
+                      tick={{ fill: "#172033", fontSize: 11, fontWeight: "bold" }}
                     />
+                    <PolarRadiusAxis
+                      angle={30}
+                      domain={[0, 100]}
+                      stroke="#8884d8"
+                      tick={{ fill: "#666", fontSize: 10 }}
+                    />
+                    <Radar
+                      name="Your Competency"
+                      dataKey="Student"
+                      stroke="#172033"
+                      fill="#172033"
+                      fillOpacity={0.45}
+                    />
+                    <Radar
+                      name="Role Benchmark Target"
+                      dataKey="Benchmark"
+                      stroke="#F6D76A"
+                      fill="#F6D76A"
+                      fillOpacity={0.35}
+                    />
+                    <Legend />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const item = payload[0].payload;
+                          return (
+                            <div className="rounded-xl border border-[#E8DAB2] bg-white p-3 shadow-lg text-xs">
+                              <p className="font-black text-[#172033]">
+                                {item.fullName}
+                              </p>
+                              <p className="mt-1 text-gray-600">
+                                Your Score:{" "}
+                                <strong className="text-[#172033]">
+                                  {item.Student}
+                                </strong>
+                              </p>
+                              <p className="text-gray-600">
+                                Target Benchmark:{" "}
+                                <strong className="text-[#9A6900]">
+                                  {item.Benchmark}
+                                </strong>
+                              </p>
+                              {item.gap > 0 ? (
+                                <p className="mt-1 font-bold text-rose-600">
+                                  Gap: {item.gap} points
+                                </p>
+                              ) : (
+                                <p className="mt-1 font-bold text-emerald-600">
+                                  ✓ Benchmark Achieved
+                                </p>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={barData}
+                    margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0ede1" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fill: "#172033", fontSize: 11 }}
+                    />
+                    <YAxis domain={[0, 100]} tick={{ fill: "#666", fontSize: 10 }} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="rounded-xl border border-[#E8DAB2] bg-white p-3 shadow-lg text-xs">
+                              <p className="font-bold text-[#172033]">
+                                {data.fullName}
+                              </p>
+                              <p className="text-gray-500">
+                                Category: {data.category}
+                              </p>
+                              <p className="mt-1 text-[#172033]">
+                                Your Score: <strong>{data["Your Score"]}</strong>
+                              </p>
+                              <p className="text-[#9A6900]">
+                                Target Benchmark:{" "}
+                                <strong>{data["Target Score"]}</strong>
+                              </p>
+                              <p className="font-black text-rose-600">
+                                Gap: {data.Gap} points
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="Your Score"
+                      fill="#172033"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="Target Score"
+                      fill="#F6D76A"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </div>
 
-                    <span className="text-sm font-black uppercase tracking-wider">
-                      Continuous Competency Intelligence
-                    </span>
-                  </div>
+        {/* MAIN VIEW SWITCHER: GAPS BREAKDOWN vs AI COURSE & CERTIFICATION RECOMMENDATIONS */}
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 pb-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setActiveMainView("gaps")}
+                className={`flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black transition ${
+                  activeMainView === "gaps"
+                    ? "bg-[#172033] text-white shadow-md"
+                    : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                <Target size={16} className={activeMainView === "gaps" ? "text-[#F6D76A]" : "text-gray-400"} />
+                <span>Identified Skill Gaps Breakdown</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs ${
+                    activeMainView === "gaps" ? "bg-white/20 text-white" : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  {roleGaps.totalSkills}
+                </span>
+              </button>
 
-                  <h3 className="mt-2 text-2xl font-black">
-                    Your assessment is now part of your
-                    skill profile.
-                  </h3>
+              <button
+                onClick={() => setActiveMainView("recommendations")}
+                className={`relative flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black transition ${
+                  activeMainView === "recommendations"
+                    ? "bg-[#172033] text-white shadow-md ring-2 ring-[#F6D76A]"
+                    : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                <Sparkles size={16} className="text-[#F6D76A]" />
+                <span>AI Course & Certification Recommendations</span>
+                <span className="rounded-full bg-[#F6D76A] px-2 py-0.5 text-xs font-black text-[#172033]">
+                  {recommendationsData.recommendations.length}
+                </span>
+                <span className="hidden md:inline-flex rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">
+                  Dynamic Match
+                </span>
+              </button>
+            </div>
 
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#172033]/70">
-                    STATWISE AI combines assessment
-                    performance with role-based targets
-                    to identify where learning should
-                    happen next.
+            <p className="text-xs text-gray-500">
+              Target Career Role: <strong className="text-[#172033]">{currentRole.title}</strong>
+            </p>
+          </div>
+
+          {activeMainView === "gaps" ? (
+            /* ============================================================
+               VIEW 1: IDENTIFIED SKILL GAPS BREAKDOWN MATRIX
+               ============================================================ */
+            <div className="space-y-6">
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                  <h2 className="text-xl font-black text-[#172033]">
+                    Identified Competency Deficits
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    Prioritized list of competency deficits with tailored action advice and study time estimates.
                   </p>
                 </div>
 
-                <button
-                  onClick={() =>
-                    navigate("/assessments/quiz")
-                  }
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#172033] px-5 py-3.5 font-black text-white transition hover:-translate-y-0.5 hover:shadow-lg"
-                >
-                  Retake Assessment
-                  <ArrowRight size={18} />
-                </button>
+                {/* Filter Buttons */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 text-xs">
+                    {["all", "critical", "high", "moderate", "proficient", "unassessed"].map((sev) => (
+                      <button
+                        key={sev}
+                        onClick={() => setFilterSeverity(sev)}
+                        className={`rounded-lg px-2.5 py-1 capitalize transition ${
+                          filterSeverity === sev
+                            ? "bg-[#172033] font-bold text-white"
+                            : "text-gray-600 hover:text-[#172033]"
+                        }`}
+                      >
+                        {sev}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 text-xs">
+                    {["all", "technical", "professional"].map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setFilterCategory(cat)}
+                        className={`rounded-lg px-2.5 py-1 capitalize transition ${
+                          filterCategory === cat
+                            ? "bg-[#F6D76A] font-bold text-[#172033]"
+                            : "text-gray-600 hover:text-[#172033]"
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </motion.section>
+
+              {/* Assessed Skills Spotlight */}
+              {roleGaps.assessedCount > 0 ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+                        <CheckCircle2 size={20} />
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-black text-emerald-950">
+                          Verified Assessed Competencies ({roleGaps.assessedCount} of {roleGaps.totalSkills} Skills Evaluated)
+                        </h3>
+                        <p className="text-xs text-emerald-800">
+                          Skills tested via genuine CodeChef assessments are active and highlighted below with exact hiring gap deficits.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => navigate("/assessments")}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#172033] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#253554] shadow-xs"
+                    >
+                      <Zap size={13} className="text-[#F6D76A]" /> Assess More Skills
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
+                        <Zap size={20} />
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-black text-amber-950">
+                          Zero Assessments Completed Yet
+                        </h3>
+                        <p className="text-xs text-amber-800">
+                          Take a 20-question CodeChef assessment on any skill below to compute your verified score and reveal your genuine skill gaps against the {currentRole.title} benchmark.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => navigate("/assessments")}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#172033] px-4 py-2 text-xs font-bold text-white hover:bg-[#253554] shadow-xs"
+                    >
+                      <Play size={13} className="fill-[#F6D76A] text-[#F6D76A]" /> Start First Assessment
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Gaps Cards Grid */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {filteredGaps.map((gap, idx) => {
+                  const isCritical = gap.severity === "Critical Gap";
+                  const isHigh = gap.severity === "High Priority Gap" || gap.severity === "High Gap";
+                  const isProficient = gap.severity === "Benchmark Met" || gap.severity === "Proficient";
+                  const isUnassessed = !gap.isAssessed;
+
+                  return (
+                    <motion.div
+                      key={gap.skill}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.04 }}
+                      className={`relative flex flex-col justify-between rounded-3xl border p-6 shadow-sm transition hover:shadow-md ${
+                        isCritical
+                          ? "border-rose-200 bg-rose-50/20"
+                          : isHigh
+                          ? "border-amber-200 bg-amber-50/20"
+                          : isProficient
+                          ? "border-emerald-200 bg-emerald-50/20"
+                          : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <div>
+                        {/* Header: Skill Name & Severity Badge */}
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`rounded-lg px-2.5 py-0.5 text-[10px] font-bold ${
+                              isCritical
+                                ? "bg-rose-100 text-rose-800"
+                                : isHigh
+                                ? "bg-amber-100 text-amber-800"
+                                : isProficient
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-blue-100 text-blue-800"
+                            }`}
+                          >
+                            {gap.severity}
+                          </span>
+
+                          <span className="text-[11px] font-semibold text-gray-500">
+                            {gap.category}
+                          </span>
+                        </div>
+
+                        <h3 className="mt-3 text-lg font-bold text-[#172033]">
+                          {gap.skill}
+                        </h3>
+
+                        {/* Scores Comparison Row */}
+                        <div className="mt-3 grid grid-cols-3 gap-2 rounded-2xl bg-white p-3 text-center border border-gray-100">
+                          <div>
+                            <p className="text-[10px] font-medium text-gray-400">
+                              Your Score
+                            </p>
+                            <p className="text-base font-black text-[#172033]">
+                              {gap.isAssessed ? `${gap.currentScore}%` : "Unassessed"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium text-gray-400">
+                              Target
+                            </p>
+                            <p className="text-base font-black text-[#9A6900]">
+                              {gap.targetScore}%
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium text-gray-400">
+                              Gap Deficit
+                            </p>
+                            <p
+                              className={`text-base font-black ${
+                                !gap.isAssessed
+                                  ? "text-gray-400"
+                                  : gap.gap > 0
+                                  ? "text-rose-600"
+                                  : "text-emerald-600"
+                              }`}
+                            >
+                              {gap.isAssessed ? (gap.gap > 0 ? `-${gap.gap}%` : "0% (Met)") : "Pending"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Progress Fill Bar */}
+                        <div className="mt-4">
+                          <div className="flex justify-between text-[11px] text-gray-500">
+                            <span>Alignment Progress</span>
+                            <span>
+                              {gap.isAssessed
+                                ? `${Math.min(100, Math.round((gap.currentScore / gap.targetScore) * 100))}%`
+                                : "0% (Not Assessed)"}
+                            </span>
+                          </div>
+                          <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                            <div
+                              style={{
+                                width: `${gap.isAssessed ? Math.min(100, (gap.currentScore / gap.targetScore) * 100) : 0}%`,
+                              }}
+                              className={`h-full rounded-full ${
+                                isProficient
+                                  ? "bg-emerald-500"
+                                  : isCritical
+                                  ? "bg-rose-500"
+                                  : isHigh
+                                  ? "bg-amber-400"
+                                  : "bg-gray-300"
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Action Advice */}
+                        <div className="mt-4 rounded-xl bg-white/80 p-3 text-xs leading-relaxed text-gray-700 border border-gray-100">
+                          <p className="font-semibold text-gray-900 flex items-center gap-1.5 mb-1">
+                            <Lightbulb size={13} className="text-[#9A6900]" />
+                            Recommended Next Step:
+                          </p>
+                          {gap.actionAdvice}
+                        </div>
+                      </div>
+
+                      {/* Footer: Estimated Hours & Quick Action */}
+                      <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-3 text-xs">
+                        <span className="font-medium text-gray-500">
+                          Est. Effort:{" "}
+                          <strong className="text-[#172033]">
+                            {gap.estimatedHours} study hours
+                          </strong>
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleSwitchToRecommendationsForSkill(gap.skill)}
+                            className="flex items-center gap-1 font-bold text-[#9A6900] hover:text-[#172033]"
+                            title="View AI Recommended Courses & Certifications for this gap"
+                          >
+                            <Sparkles size={13} className="text-[#9A6900]" />
+                            AI Courses ({recommendationsData.by_skill[gap.skill]?.length || 0})
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/assessments/codechef?skill=${encodeURIComponent(
+                                  gap.skill
+                                )}`
+                              )
+                            }
+                            className="rounded-lg bg-[#172033] px-2.5 py-1 text-[11px] font-bold text-white hover:bg-[#263553]"
+                          >
+                            Assess on CodeChef
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* ============================================================
+               VIEW 2: AI COURSE & CERTIFICATION RECOMMENDATIONS (FEATURE 4)
+               ============================================================ */
+            <div className="space-y-6">
+              {/* Header & Engine Criteria Explanation */}
+              <div className="rounded-3xl border border-[#EAD8A6] bg-gradient-to-br from-white via-[#FFFDF5] to-[#FBF8EF] p-6 sm:p-8 shadow-sm">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                  <div className="space-y-2 max-w-3xl">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F6D76A] text-[#172033] shadow-xs">
+                        <Sparkles size={18} />
+                      </span>
+                      <h2 className="text-xl font-black text-[#172033] sm:text-2xl">
+                        AI-Powered Certification & Course Recommendations
+                      </h2>
+                    </div>
+
+                    <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
+                      {recommendationsData.summary}
+                    </p>
+
+                    {/* The 6 Decision Factors Banner */}
+                    <div className="mt-4 flex flex-wrap gap-2 pt-2">
+                      <span className="rounded-xl border border-gray-200 bg-white px-3 py-1 text-[11px] font-bold text-gray-700 shadow-2xs">
+                        🎯 Role: <strong>{currentRole.title}</strong>
+                      </span>
+                      <span className="rounded-xl border border-gray-200 bg-white px-3 py-1 text-[11px] font-bold text-gray-700 shadow-2xs">
+                        🎓 Proficiency: <strong>Student Current Level Matched</strong>
+                      </span>
+                      <span className="rounded-xl border border-gray-200 bg-white px-3 py-1 text-[11px] font-bold text-gray-700 shadow-2xs">
+                        🔍 Missing Gaps: <strong>Prioritized by Point Deficit</strong>
+                      </span>
+                      <span className="rounded-xl border border-gray-200 bg-white px-3 py-1 text-[11px] font-bold text-gray-700 shadow-2xs">
+                        ⚡ Difficulty: <strong>Aligned to Prevent Overwhelm</strong>
+                      </span>
+                      <span className="rounded-xl border border-gray-200 bg-white px-3 py-1 text-[11px] font-bold text-gray-700 shadow-2xs">
+                        ⏱️ Duration: <strong>12-hr Labs to 12-wk Semesters</strong>
+                      </span>
+                      <span className="rounded-xl border border-gray-200 bg-white px-3 py-1 text-[11px] font-bold text-gray-700 shadow-2xs">
+                        📜 Certification: <strong>Coursera / Kaggle / NPTEL / AWS</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-amber-200 bg-amber-50/80 p-5 text-center min-w-[200px]">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900">
+                      Top Match Ready
+                    </span>
+                    <p className="mt-1 text-3xl font-black text-[#172033]">
+                      {filteredRecommendations[0]?.match_score || 99}%
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-amber-800">
+                      Best Aligned Resource
+                    </p>
+                    <button
+                      onClick={() => setActiveMainView("gaps")}
+                      className="mt-3 text-xs font-bold text-[#172033] underline hover:text-amber-800"
+                    >
+                      ← Back to Gap Matrix
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* DYNAMIC FILTER CONTROLS */}
+              <div className="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
+                {/* Row 1: Search & Toggles */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="relative flex-1 max-w-md">
+                    <Search
+                      size={14}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Search courses, instructors (e.g. Andrew Ng, IIT Madras)..."
+                      value={recSearchQuery}
+                      onChange={(e) => setRecSearchQuery(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50/50 py-2 pl-9 pr-3 text-xs text-[#172033] outline-none focus:border-[#172033] focus:bg-white transition"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 font-bold text-gray-700 hover:bg-gray-100 transition">
+                      <input
+                        type="checkbox"
+                        checked={recCertOnly}
+                        onChange={(e) => setRecCertOnly(e.target.checked)}
+                        className="rounded border-gray-300 text-[#172033] focus:ring-0"
+                      />
+                      <span>🎓 Official Certificate Included</span>
+                    </label>
+
+                    {(recSkillFilter !== "all" ||
+                      recPlatformFilter !== "all" ||
+                      recDifficultyFilter !== "all" ||
+                      recCertOnly ||
+                      recSearchQuery) && (
+                      <button
+                        onClick={() => {
+                          setRecSkillFilter("all");
+                          setRecPlatformFilter("all");
+                          setRecDifficultyFilter("all");
+                          setRecCertOnly(false);
+                          setRecSearchQuery("");
+                        }}
+                        className="text-xs font-bold text-rose-600 hover:underline"
+                      >
+                        Reset Filters
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Row 1.5: Match Type Pills: Direct Deficit vs Related Synergy */}
+                <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-gray-400 mr-1">
+                    Recommendation Scope:
+                  </span>
+                  <button
+                    onClick={() => setRecMatchTypeFilter("all")}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                      recMatchTypeFilter === "all"
+                        ? "bg-[#172033] text-white shadow-xs"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    All Curated ({recommendationsData.recommendations?.length || 0})
+                  </button>
+                  <button
+                    onClick={() => setRecMatchTypeFilter("direct")}
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                      recMatchTypeFilter === "direct"
+                        ? "bg-emerald-700 text-white shadow-xs ring-2 ring-emerald-500/20"
+                        : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                    }`}
+                  >
+                    <span>🎯 Direct Deficit Matches</span>
+                    <span className="rounded-full bg-emerald-200/60 px-1.5 text-[10px]">
+                      {recommendationsData.direct_matches_count || recommendationsData.recommendations?.filter(r => r.match_type === 'direct').length || 0}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setRecMatchTypeFilter("related")}
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                      recMatchTypeFilter === "related"
+                        ? "bg-amber-700 text-white shadow-xs ring-2 ring-amber-500/20"
+                        : "bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100"
+                    }`}
+                  >
+                    <span>🔗 Related Skill Synergies</span>
+                    <span className="rounded-full bg-amber-200/60 px-1.5 text-[10px]">
+                      {recommendationsData.related_matches_count || recommendationsData.recommendations?.filter(r => r.match_type === 'related').length || 0}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Row 2: Skill Filter Pills (Dynamically from Student's Active Gaps) */}
+                <div className="space-y-1.5 border-t border-gray-100 pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-gray-400">
+                      Filter by Identified Skill Deficit:
+                    </span>
+                    <span className="text-[11px] text-gray-500">
+                      Showing {filteredRecommendations.length} courses
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      onClick={() => setRecSkillFilter("all")}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                        recSkillFilter === "all"
+                          ? "bg-[#172033] text-white shadow-xs"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      All Gaps ({recommendationsData.recommendations.length})
+                    </button>
+
+                    {Object.keys(recommendationsData.by_skill).map((skillName) => {
+                      const count = recommendationsData.by_skill[skillName]?.length || 0;
+                      const isSelected = recSkillFilter === skillName;
+
+                      return (
+                        <button
+                          key={skillName}
+                          onClick={() => setRecSkillFilter(skillName)}
+                          className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                            isSelected
+                              ? "bg-[#F6D76A] text-[#172033] shadow-xs ring-1 ring-[#172033]"
+                              : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          <span>{skillName}</span>
+                          <span
+                            className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                              isSelected
+                                ? "bg-[#172033] text-white"
+                                : "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Row 3: Platform and Difficulty Filter Pills */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-gray-400 font-bold mr-1">Platform:</span>
+                    {[
+                      { id: "all", label: "All Platforms" },
+                      { id: "coursera", label: "Coursera" },
+                      { id: "kaggle", label: "Kaggle" },
+                      { id: "nptel", label: "NPTEL / IIT" },
+                      { id: "edx", label: "edX / Harvard" },
+                      { id: "freecodecamp", label: "freeCodeCamp" },
+                      { id: "fastai", label: "fast.ai" },
+                      { id: "aws", label: "Cloud / AWS" }
+                    ].map((plat) => (
+                      <button
+                        key={plat.id}
+                        onClick={() => setRecPlatformFilter(plat.id)}
+                        className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition ${
+                          recPlatformFilter === plat.id
+                            ? "bg-[#172033] text-white"
+                            : "text-gray-600 hover:text-gray-900 bg-gray-50"
+                        }`}
+                      >
+                        {plat.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-gray-400 font-bold mr-1">Difficulty:</span>
+                    {["all", "beginner", "intermediate", "advanced"].map((diff) => (
+                      <button
+                        key={diff}
+                        onClick={() => setRecDifficultyFilter(diff)}
+                        className={`rounded-lg px-2.5 py-1 capitalize text-[11px] font-bold transition ${
+                          recDifficultyFilter === diff
+                            ? "bg-[#172033] text-white"
+                            : "text-gray-600 hover:text-gray-900 bg-gray-50"
+                        }`}
+                      >
+                        {diff}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* ANIMATED RECOMMENDATION CARDS GRID */}
+              {filteredRecommendations.length === 0 ? (
+                <div className="rounded-3xl border border-gray-200 bg-white p-12 text-center space-y-4">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800 text-2xl">
+                    🔍
+                  </div>
+                  <h3 className="text-lg font-bold text-[#172033]">
+                    No Recommendations Match Your Filters
+                  </h3>
+                  <p className="text-xs text-gray-500 max-w-md mx-auto">
+                    Try resetting your filters or selecting "All Gaps" to see the full set of tailored courses for {currentRole.title}.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setRecSkillFilter("all");
+                      setRecPlatformFilter("all");
+                      setRecDifficultyFilter("all");
+                      setRecCertOnly(false);
+                      setRecSearchQuery("");
+                    }}
+                    className="rounded-xl bg-[#172033] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#253554]"
+                  >
+                    Reset All Filters
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  <AnimatePresence>
+                    {filteredRecommendations.map((rec, idx) => {
+                      const isHighMatch = rec.match_score >= 95;
+                      const isCoursera = rec.provider.toLowerCase() === "coursera";
+                      const isKaggle = rec.provider.toLowerCase() === "kaggle";
+                      const isNptel = rec.provider.toLowerCase() === "nptel";
+                      const isAws = rec.provider.toLowerCase() === "aws";
+
+                      return (
+                        <motion.div
+                          key={rec.id}
+                          layout
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.25, delay: idx * 0.03 }}
+                          whileHover={{ y: -4 }}
+                          className="flex flex-col justify-between rounded-3xl border border-[#E8DAB2] bg-white p-6 shadow-sm hover:shadow-lg transition-all"
+                        >
+                          <div>
+                            {/* Card Top: Provider Pill & Match Score Pill */}
+                            <div className="flex items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                              {/* Provider Badge */}
+                              <div className="flex items-center gap-2">
+                                <span
+                                  style={{ backgroundColor: rec.icon_bg }}
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-black text-white shadow-2xs"
+                                >
+                                  {isCoursera && "C"}
+                                  {isKaggle && "K"}
+                                  {isNptel && "N"}
+                                  {isAws && "A"}
+                                  {!isCoursera && !isKaggle && !isNptel && !isAws && "★"}
+                                </span>
+                                <div>
+                                  <p className="text-xs font-black text-[#172033]">
+                                    {rec.provider}
+                                  </p>
+                                  <p className="text-[10px] text-gray-400">
+                                    {rec.duration_type}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* AI Match Pill */}
+                              <div
+                                className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-black ${
+                                  isHighMatch
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300 ring-2 ring-emerald-500/20"
+                                    : "bg-amber-100 text-amber-800 border border-amber-300"
+                                }`}
+                              >
+                                <Sparkles size={11} />
+                                <span>{rec.match_score}% AI Match</span>
+                              </div>
+                            </div>
+
+                            {/* Course Title & Institution */}
+                            <div className="mt-4 space-y-1">
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                {rec.match_type === "direct" ? (
+                                  <span className="rounded-md bg-emerald-50 border border-emerald-300 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                    🎯 Direct Deficit Match: {rec.matched_skill}
+                                  </span>
+                                ) : (
+                                  <span className="rounded-md bg-amber-50 border border-amber-300 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                                    🔗 Related Synergy for {rec.related_to_skill || rec.matched_skill}
+                                  </span>
+                                )}
+                              </div>
+
+                              <h3 className="mt-2 text-base font-black text-[#172033] line-clamp-2">
+                                {rec.title}
+                              </h3>
+
+                              <p className="mt-1 text-xs font-semibold text-gray-500">
+                                {rec.institution}{" "}
+                                {rec.instructor && (
+                                  <span className="text-gray-400 font-normal">
+                                    • {rec.instructor}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+
+                            {/* Core Criteria Pills (Level, Duration, Certification) */}
+                            <div className="mt-4 flex flex-wrap gap-1.5">
+                              <span className="rounded-lg bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-700">
+                                ⚡ {rec.difficulty}
+                              </span>
+                              <span className="rounded-lg bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-700">
+                                ⏱️ {rec.duration}
+                              </span>
+                              {rec.has_certificate && (
+                                <span className="rounded-lg bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                  📜 {rec.badge_name || "Verified Credential"}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* AI Recommendation Rationale Box */}
+                            <div className="mt-4 rounded-2xl bg-[#FFFDF5] border border-amber-200/80 p-3.5 space-y-1.5">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-amber-900">
+                                <span className="flex items-center gap-1">
+                                  <Lightbulb size={12} className="text-[#9A6900]" />
+                                  Why AI Recommends This:
+                                </span>
+                                <span className="text-[10px] text-gray-500">
+                                  Deficit: -{rec.gap_deficit}%
+                                </span>
+                              </div>
+
+                              <p className="text-[11px] font-semibold text-emerald-800 bg-emerald-50/80 p-1.5 rounded-lg border border-emerald-200">
+                                ✓ {rec.level_fit}
+                              </p>
+                              {rec.synergy_reason && (
+                                <p className="text-[11px] font-semibold text-amber-800 bg-amber-50/80 p-1.5 rounded-lg border border-amber-200">
+                                  🔗 {rec.synergy_reason}
+                                </p>
+                              )}
+
+                              <p className="text-[11px] text-gray-600 leading-relaxed">
+                                {rec.overview}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Card Footer: Rating, Audit Info & Action Buttons */}
+                          <div className="mt-5 space-y-3 border-t border-gray-100 pt-3">
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <div className="flex items-center gap-1 font-bold text-[#172033]">
+                                <Star size={12} className="fill-amber-400 text-amber-400" />
+                                <span>{rec.rating}</span>
+                                <span className="text-gray-400 font-normal">
+                                  ({rec.learners})
+                                </span>
+                              </div>
+
+                              <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                                {rec.is_free ? "100% Free" : "Free Audit Available"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <a
+                                href={rec.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-[#172033] py-2.5 text-xs font-bold text-white hover:bg-[#253554] shadow-xs transition"
+                              >
+                                <span>Start Course</span>
+                                <ExternalLink size={12} className="text-[#F6D76A]" />
+                              </a>
+
+                              <button
+                                onClick={() => handleAddCourseToRoadmap(rec)}
+                                title="Add to your personalized roadmap"
+                                className="flex items-center justify-center rounded-xl border border-gray-300 bg-white p-2.5 text-gray-700 hover:bg-gray-100 hover:text-[#172033] shadow-xs transition"
+                              >
+                                <Compass size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
           )}
-      </main>
+        </div>
 
-      {/* FOOTER */}
+        {/* BOTTOM CALL TO ACTION: PERSONALIZED ROADMAP */}
+        <div className="rounded-3xl border border-[#EAD8A6] bg-gradient-to-r from-[#172033] to-[#263553] p-8 text-white shadow-xl">
+          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+            <div>
+              <span className="rounded-full bg-[#F6D76A] px-3 py-1 text-xs font-black text-[#172033]">
+                Next Logical Action
+              </span>
+              <h3 className="mt-2 text-2xl font-black text-white">
+                Generate Your Personalized Learning Roadmap
+              </h3>
+              <p className="mt-1 max-w-xl text-xs text-gray-300 sm:text-sm">
+                Turn these identified skill gaps into a step-by-step milestone timeline with curated certifications, courses, and project deliverables.
+              </p>
+            </div>
 
-      <footer className="border-t border-black/10 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm text-gray-500 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
-          <p>
-            © {new Date().getFullYear()} STATWISE AI ·
-            Intelligent Learning. Measurable Impact.
-          </p>
-
-          <div className="flex gap-5">
-            <button
-              onClick={() =>
-                navigate("/dashboard")
-              }
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => navigate("/roadmaps")}
+              className="flex items-center gap-2 rounded-2xl bg-[#F6D76A] px-6 py-3.5 text-sm font-black text-[#172033] shadow-lg hover:bg-yellow-400 transition"
             >
-              Dashboard
-            </button>
-
-            <button
-              onClick={() =>
-                navigate("/learning")
-              }
-            >
-              Learning
-            </button>
-
-            <button
-              onClick={() =>
-                navigate("/assessments")
-              }
-            >
-              Assessments
-            </button>
+              Open Learning Roadmap
+              <ArrowRight size={16} />
+            </motion.button>
           </div>
         </div>
-      </footer>
+      </main>
+
+      <Footer />
     </div>
   );
 }

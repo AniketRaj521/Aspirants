@@ -1,15 +1,28 @@
 from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
+from services.igot_service import recommend_igot_courses
 
 import os
 from pathlib import Path
-from typing import Any
-
+from pydantic import BaseModel
+from typing import Any, List, Dict, Optional
 
 # ============================================================
 # SERVICES
 # ============================================================
+
+from services.student_service import (
+    get_all_roles,
+    get_role_by_id,
+    calculate_skill_gaps as compute_student_skill_gaps,
+    get_recommendations_for_gaps,
+    generate_personalized_roadmap as build_student_roadmap,
+    LEARNING_RESOURCES,
+    CERTIFICATION_CATALOG
+)
 
 from services.flashcard_service import generate_flashcards
 from services.ppt_service import generate_presentation, GENERATED_DIR
@@ -46,6 +59,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Ensure uploads directory exists and mount static serving
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+
 
 # ============================================================
 # CORS CONFIGURATION
@@ -55,10 +73,17 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "http://127.0.0.1:5173",
         "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+        "http://127.0.0.1:5176",
+        "http://127.0.0.1:3000",
     ],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1894,6 +1919,22 @@ async def download_ppt(
         ),
         filename=safe_name
     )
+@app.get("/api/igot/recommendations")
+async def get_igot_recommendations(
+    role: str = "Data Analyst",
+    skill_gaps: str = "Statistics,Python,Data Visualization"
+):
+    gaps = [
+        item.strip()
+        for item in skill_gaps.split(",")
+        if item.strip()
+    ]
+
+    return recommend_igot_courses(
+        skill_gaps=gaps,
+        role=role,
+        limit=10
+    )
 
 
 # ============================================================
@@ -2095,8 +2136,781 @@ async def analyze_digital_twin_pdf(
 
 
 # ============================================================
+# STUDENT SKILL INTELLIGENCE & CAREER ROADMAP ENDPOINTS
+# ============================================================
+
+class StudentSkillGapRequest(BaseModel):
+    role_id: str
+    skills: List[Dict[str, Any]]
+
+class StudentRecommendationRequest(BaseModel):
+    role_id: str
+    skill_gaps: List[Dict[str, Any]]
+
+class StudentRoadmapRequest(BaseModel):
+    role_id: str
+    skills: List[Dict[str, Any]]
+    timeline_weeks: int = 12
+    weekly_hours: int = 10
+    student_id: Optional[str] = "default_student"
+    force_regenerate: bool = False
+
+class RoadmapMilestoneToggleRequest(BaseModel):
+    student_id: Optional[str] = "default_student"
+    role_id: str
+    milestone_id: str
+    completed: Optional[bool] = None
+
+@app.get("/api/student/roles")
+async def get_student_career_roles():
+    """Retrieve all benchmark career roles with competency matrices."""
+    return {
+        "status": "success",
+        "roles": get_all_roles()
+    }
+
+@app.post("/api/student/skill-gaps")
+async def analyze_student_skill_gaps(payload: StudentSkillGapRequest):
+    """Dynamically evaluate student competencies against selected role requirements."""
+    try:
+        result = compute_student_skill_gaps(payload.role_id, payload.skills)
+        return {
+            "status": "success",
+            "data": result
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": str(e)}
+        )
+
+@app.post("/api/student/recommendations")
+async def get_student_gap_recommendations(payload: StudentRecommendationRequest):
+    """Generate targeted certifications, courses, and resources for detected gaps."""
+    try:
+        result = get_recommendations_for_gaps(payload.role_id, payload.skill_gaps)
+        return {
+            "status": "success",
+            "data": result
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": str(e)}
+        )
+
+@app.post("/api/student/roadmap")
+async def generate_student_roadmap(payload: StudentRoadmapRequest):
+    """Generate or retrieve an intelligent, personalized DAG-based learning roadmap."""
+    try:
+        student_id = payload.student_id or "default_student"
+        if not payload.force_regenerate:
+            saved = db.get_student_roadmap(student_id, payload.role_id)
+            if saved:
+                return {"status": "success", "data": saved, "source": "database"}
+
+        result = build_student_roadmap(
+            role_id=payload.role_id,
+            student_skills=payload.skills,
+            timeline_weeks=payload.timeline_weeks,
+            weekly_hours=payload.weekly_hours,
+            student_id=student_id
+        )
+        return {
+            "status": "success",
+            "data": result,
+            "source": "generated"
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": str(e)}
+        )
+
+@app.post("/api/student/roadmap/milestone")
+async def toggle_student_roadmap_milestone(payload: RoadmapMilestoneToggleRequest):
+    """Toggles completion status of a roadmap milestone in the database and awards XP."""
+    try:
+        res = db.toggle_roadmap_milestone(
+            student_id=payload.student_id or "default_student",
+            role_id=payload.role_id,
+            milestone_id=payload.milestone_id,
+            completed=payload.completed
+        )
+        return {"status": "success", "data": res}
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": str(e)}
+        )
+
+@app.get("/api/student/roadmap/{role_id}")
+async def get_student_saved_roadmap(role_id: str, student_id: str = "default_student"):
+    """Retrieve persisted student roadmap from SQLite database."""
+    try:
+        saved = db.get_student_roadmap(student_id, role_id)
+        if saved:
+            return {"status": "success", "data": saved}
+        return {"status": "not_found", "message": "No saved roadmap found for this role"}
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": str(e)}
+        )
+
+@app.get("/api/student/resources")
+async def get_student_resource_catalog():
+    """Retrieve curated official documentation, interactive labs, and masterclasses."""
+    return {
+        "status": "success",
+        "resources": LEARNING_RESOURCES,
+        "certifications": CERTIFICATION_CATALOG
+    }
+
+
+# ============================================================
 # SERVER START
 # ============================================================
+
+
+import database.db as db
+
+class StudentProfileUpdateRequest(BaseModel):
+    student_id: Optional[str] = "default_student"
+    name: Optional[str] = ""
+    email: Optional[str] = ""
+    college: Optional[str] = ""
+    branch: Optional[str] = ""
+    year: Optional[str] = ""
+    cgpa: Optional[str] = ""
+    targetRole: Optional[str] = "data_scientist"
+    bio: Optional[str] = ""
+    phone: Optional[str] = ""
+    location: Optional[str] = ""
+    github: Optional[str] = ""
+    linkedin: Optional[str] = ""
+    portfolio: Optional[str] = ""
+    programmingLanguages: Optional[List[str]] = []
+    databaseTools: Optional[List[str]] = []
+    careerInterests: Optional[List[str]] = []
+    preferredJobRoles: Optional[List[str]] = []
+
+class StudentAssessmentSubmission(BaseModel):
+    student_id: Optional[str] = "default_student"
+    skill_name: str
+    test_code: str
+    total_questions: int = 20
+    correct_count: int
+    percentage: int
+    subjects: Optional[List[Dict[str, Any]]] = []
+    time_spent_seconds: Optional[int] = 0
+
+class SingleTestSkillGapRequest(BaseModel):
+    skill_name: str
+    score: int
+    target_role: Optional[str] = "data_scientist"
+    subjects: Optional[List[Dict[str, Any]]] = []
+
+@app.get("/api/student/data")
+async def get_real_student_data(student_id: str = "default_student"):
+    """Returns real profile, skills, and test history from SQLite database."""
+    try:
+        data = db.get_student_full_state(student_id)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.post("/api/student/profile")
+async def update_real_student_profile(payload: StudentProfileUpdateRequest):
+    """Updates student profile in SQLite database."""
+    try:
+        data = db.update_student_profile(payload.dict(), payload.student_id or "default_student")
+        return {"status": "success", "message": "Profile updated in database", "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+@app.get("/api/student/skill-progress")
+async def get_student_skill_progress(student_id: str = "default_student"):
+    """
+    Feature 6: Skill Development Progress Tracking.
+    Tracks Before Learning vs. After Learning improvement across real CodeChef test attempts.
+    """
+    try:
+        progress_data = db.get_skill_development_progress(student_id)
+        return {
+            "status": "success",
+            "data": progress_data
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+@app.post("/api/student/assessment")
+async def submit_real_assessment(payload: StudentAssessmentSubmission):
+    """Records CodeChef assessment in SQLite database and updates tested skill."""
+    try:
+        record_res = db.record_assessment(payload.dict(), payload.student_id or "default_student")
+        full_state = db.get_student_full_state(payload.student_id or "default_student")
+        return {
+            "status": "success",
+            "message": "Assessment recorded in database",
+            "record": record_res,
+            "student_state": full_state
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.post("/api/student/single-test-gap")
+async def compute_single_test_skill_gap(payload: SingleTestSkillGapRequest):
+    """Computes skill gap for ONLY the test given."""
+    try:
+        role = get_role_by_id(payload.target_role or "data_scientist")
+        skill_name = payload.skill_name.strip()
+        student_score = int(payload.score)
+
+        role_skills = role.get("skills", [])
+        matched_req = None
+        for r_sk in role_skills:
+            r_name = r_sk["name"].lower().strip()
+            q_name = skill_name.lower().strip()
+            if r_name == q_name or r_name in q_name or q_name in r_name:
+                matched_req = r_sk
+                break
+
+        target_score = matched_req["target_score"] if matched_req else 85
+        role_title = role.get("title", "Selected Role")
+        gap = max(0, target_score - student_score)
+
+        if gap >= 25:
+            severity = "Critical Gap"
+            advice = f"High priority blocker: Allocate 25-30 hours of structured coursework and drills in {skill_name}."
+        elif gap >= 15:
+            severity = "High Priority Gap"
+            advice = f"Targeted focus needed: Complete intermediate projects to close the {gap}-point deficit in {skill_name}."
+        elif gap >= 5:
+            severity = "Moderate Gap"
+            advice = f"Refinement stage: Solve practice drills and test edge-case problems in {skill_name}."
+        else:
+            severity = "Benchmark Satisfied"
+            advice = f"Benchmark met ({student_score}% >= {target_score}%). Maintain proficiency with advanced challenges."
+
+        subject_gaps = []
+        if payload.subjects:
+            for subj in payload.subjects:
+                s_pct = subj.get("percentage", 0)
+                s_gap = max(0, target_score - s_pct)
+                subject_gaps.append({
+                    "id": subj.get("id"),
+                    "name": subj.get("name"),
+                    "question_range": subj.get("questionRange", ""),
+                    "score": s_pct,
+                    "target": target_score,
+                    "gap": s_gap,
+                    "status": "Benchmark Met" if s_gap == 0 else ("Critical Deficit" if s_gap >= 25 else "Moderate Deficit")
+                })
+
+        return {
+            "status": "success",
+            "data": {
+                "skill_name": skill_name,
+                "student_score": student_score,
+                "required_score": target_score,
+                "skill_gap": gap,
+                "is_met": gap == 0,
+                "severity": severity,
+                "role_id": role.get("id"),
+                "role_title": role_title,
+                "estimated_hours": round(gap * 1.3) if gap > 0 else 0,
+                "action_advice": advice,
+                "subject_gaps": subject_gaps
+            }
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.post("/api/student/reset")
+async def reset_student_profile(student_id: str = "default_student"):
+    """Resets database to clean empty state."""
+    try:
+        data = db.reset_student_database(student_id)
+        return {"status": "success", "message": "Student database reset to clean state", "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+
+
+class StudentSkillRequest(BaseModel):
+    id: Optional[str] = None
+    name: str
+    category: Optional[str] = "Technical"
+    currentScore: Optional[int] = 0
+    targetScore: Optional[int] = 85
+    level: Optional[str] = "Beginner"
+    verified: Optional[bool] = False
+    lastAssessed: Optional[str] = None
+    notes: Optional[str] = ""
+    student_id: Optional[str] = "default_student"
+
+class StudentProjectRequest(BaseModel):
+    id: Optional[str] = None
+    title: str
+    description: Optional[str] = ""
+    techStack: Optional[List[str]] = []
+    link: Optional[str] = ""
+    date: Optional[str] = ""
+    student_id: Optional[str] = "default_student"
+
+class StudentInternshipRequest(BaseModel):
+    id: Optional[str] = None
+    company: str
+    role: str
+    duration: Optional[str] = "3 Months"
+    location: Optional[str] = "Hybrid"
+    description: Optional[str] = ""
+    skillsApplied: Optional[List[str]] = []
+    student_id: Optional[str] = "default_student"
+
+class StudentCertificationRequest(BaseModel):
+    id: Optional[str] = None
+    title: str
+    issuer: str
+    issueDate: Optional[str] = ""
+    credentialId: Optional[str] = ""
+    credentialUrl: Optional[str] = ""
+    skillsLearned: Optional[List[str]] = []
+    badgeColor: Optional[str] = "#4285F4"
+    grade: Optional[str] = "Verified Complete"
+    status: Optional[str] = "Verified"
+    student_id: Optional[str] = "default_student"
+
+@app.post("/api/student/skills")
+async def save_student_skill(payload: StudentSkillRequest):
+    try:
+        data = db.add_or_update_skill(payload.dict(), payload.student_id or "default_student")
+        return {"status": "success", "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.delete("/api/student/skills/{skill_id}")
+async def remove_student_skill(skill_id: str, student_id: str = "default_student"):
+    try:
+        db.delete_skill(skill_id, student_id)
+        return {"status": "success", "message": "Skill deleted"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.post("/api/student/projects")
+async def save_student_project(payload: StudentProjectRequest):
+    try:
+        data = db.add_project(payload.dict(), payload.student_id or "default_student")
+        return {"status": "success", "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.delete("/api/student/projects/{project_id}")
+async def remove_student_project(project_id: str, student_id: str = "default_student"):
+    try:
+        db.delete_project(project_id, student_id)
+        return {"status": "success", "message": "Project deleted"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.post("/api/student/internships")
+async def save_student_internship(payload: StudentInternshipRequest):
+    try:
+        data = db.add_internship(payload.dict(), payload.student_id or "default_student")
+        return {"status": "success", "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.delete("/api/student/internships/{internship_id}")
+async def remove_student_internship(internship_id: str, student_id: str = "default_student"):
+    try:
+        db.delete_internship(internship_id, student_id)
+        return {"status": "success", "message": "Internship deleted"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.post("/api/student/certifications")
+async def save_student_certification(payload: StudentCertificationRequest):
+    try:
+        data = db.add_certification(payload.dict(), payload.student_id or "default_student")
+        return {"status": "success", "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+
+# ============================================================
+# CERTIFICATION & ACHIEVEMENT MANAGEMENT (FEATURE MODULE)
+# ============================================================
+
+class CertificationPayload(BaseModel):
+    id: Optional[str] = None
+    certification_name: Optional[str] = ""
+    title: Optional[str] = ""
+    issuing_organization: Optional[str] = ""
+    issuer: Optional[str] = ""
+    category: Optional[str] = "Other"
+    completion_date: Optional[str] = ""
+    issueDate: Optional[str] = ""
+    certificate_id: Optional[str] = ""
+    credentialId: Optional[str] = ""
+    certificate_url: Optional[str] = ""
+    credentialUrl: Optional[str] = ""
+    uploaded_file_path: Optional[str] = ""
+    filePath: Optional[str] = ""
+    file_name: Optional[str] = ""
+    fileName: Optional[str] = ""
+    file_size: Optional[int] = 0
+    fileSize: Optional[int] = 0
+    description: Optional[str] = ""
+    verification_status: Optional[str] = "Pending Verification"
+    status: Optional[str] = "Pending Verification"
+    verification_url: Optional[str] = ""
+    verificationUrl: Optional[str] = ""
+    badge_color: Optional[str] = "#4285F4"
+    badgeColor: Optional[str] = "#4285F4"
+    grade: Optional[str] = "Completed"
+    skills_learned: Optional[List[str]] = []
+    skillsLearned: Optional[List[str]] = []
+    student_id: Optional[str] = "default_student"
+
+class AchievementPayload(BaseModel):
+    id: Optional[str] = None
+    title: str
+    category: Optional[str] = "Other Achievements"
+    organization: str
+    achievement_date: Optional[str] = ""
+    achievementDate: Optional[str] = ""
+    description: Optional[str] = ""
+    award_position: Optional[str] = "Participation"
+    awardPosition: Optional[str] = "Participation"
+    supporting_document_path: Optional[str] = ""
+    supportingDocumentPath: Optional[str] = ""
+    supporting_document_name: Optional[str] = ""
+    supportingDocumentName: Optional[str] = ""
+    file_size: Optional[int] = 0
+    fileSize: Optional[int] = 0
+    reference_url: Optional[str] = ""
+    referenceUrl: Optional[str] = ""
+    student_id: Optional[str] = "default_student"
+
+# File Upload Endpoint
+@app.post("/api/upload-file")
+@app.post("/api/certifications/upload")
+async def api_upload_certificate_file(file: UploadFile = File(...)):
+    try:
+        import datetime
+        filename = file.filename or "uploaded_document.pdf"
+        ext = os.path.splitext(filename)[1].lower()
+        allowed_exts = [".pdf", ".png", ".jpg", ".jpeg"]
+        if ext not in allowed_exts:
+            return JSONResponse(
+                status_code=400,
+                content={"status": "error", "message": f"Unsupported file type '{ext}'. Supported formats: PDF, PNG, JPG."}
+            )
+
+        contents = await file.read()
+        file_size = len(contents)
+        if file_size > 10 * 1024 * 1024:
+            return JSONResponse(
+                status_code=400,
+                content={"status": "error", "message": "File exceeds maximum allowed limit of 10 MB."}
+            )
+
+        clean_stem = "".join(c for c in os.path.splitext(filename)[0] if c.isalnum() or c in ("-", "_"))[:25]
+        unique_filename = f"cert_{int(datetime.datetime.now().timestamp())}_{os.urandom(3).hex()}_{clean_stem}{ext}"
+        save_path = os.path.join(UPLOADS_DIR, unique_filename)
+
+        with open(save_path, "wb") as f_out:
+            f_out.write(contents)
+
+        return {
+            "status": "success",
+            "file_path": f"/uploads/{unique_filename}",
+            "file_url": f"/uploads/{unique_filename}",
+            "file_name": filename,
+            "file_size": file_size,
+            "message": "File successfully uploaded and stored."
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+# File Download Endpoint
+@app.get("/api/files/download/{filename}")
+async def api_download_file(filename: str, original_name: Optional[str] = None):
+    try:
+        safe_filename = os.path.basename(filename)
+        filepath = os.path.join(UPLOADS_DIR, safe_filename)
+        if not os.path.exists(filepath):
+            return JSONResponse(status_code=404, content={"status": "error", "message": "File not found"})
+        
+        download_name = original_name or safe_filename
+        return FileResponse(
+            filepath,
+            filename=download_name,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{download_name}"'}
+        )
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+# Certifications Endpoints
+@app.post("/api/certifications")
+async def api_create_certification(payload: CertificationPayload):
+    try:
+        data = db.add_certification(payload.dict(), payload.student_id or "default_student")
+        return {"status": "success", "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.get("/api/certifications")
+async def api_list_certifications(
+    student_id: str = "default_student",
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    verification_status: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = "newest"
+):
+    try:
+        v_status = verification_status or status
+        data = db.get_certifications(
+            student_id=student_id,
+            category=category,
+            verification_status=v_status,
+            search=search,
+            sort_by=sort_by
+        )
+        return {"status": "success", "count": len(data), "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.get("/api/certifications/analytics/overview")
+async def api_get_certifications_analytics(student_id: str = "default_student"):
+    try:
+        analytics = db.get_certification_analytics(student_id)
+        return {"status": "success", "data": analytics}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.get("/api/certifications/{cert_id}")
+async def api_get_single_certification(cert_id: str, student_id: str = "default_student"):
+    try:
+        cert = db.get_certification_by_id(cert_id, student_id)
+        if not cert:
+            return JSONResponse(status_code=404, content={"status": "error", "message": "Certification not found"})
+        return {"status": "success", "data": cert}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.put("/api/certifications/{cert_id}")
+async def api_update_certification(cert_id: str, payload: CertificationPayload):
+    try:
+        updated = db.update_certification(cert_id, payload.dict(), payload.student_id or "default_student")
+        if not updated:
+            return JSONResponse(status_code=404, content={"status": "error", "message": "Certification not found or unauthorized"})
+        return {"status": "success", "data": updated}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.delete("/api/certifications/{cert_id}")
+async def api_delete_certification(cert_id: str, student_id: str = "default_student"):
+    try:
+        deleted = db.delete_certification(cert_id, student_id)
+        if not deleted:
+            return JSONResponse(status_code=404, content={"status": "error", "message": "Certification not found or unauthorized"})
+        return {"status": "success", "message": "Certification deleted successfully"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+# Achievements Endpoints
+@app.post("/api/achievements")
+async def api_create_achievement(payload: AchievementPayload):
+    try:
+        data = db.add_achievement(payload.dict(), payload.student_id or "default_student")
+        return {"status": "success", "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.get("/api/achievements")
+async def api_list_achievements(
+    student_id: str = "default_student",
+    category: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: str = "newest"
+):
+    try:
+        data = db.get_achievements(
+            student_id=student_id,
+            category=category,
+            search=search,
+            sort_by=sort_by
+        )
+        return {"status": "success", "count": len(data), "data": data}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.get("/api/achievements/{ach_id}")
+async def api_get_single_achievement(ach_id: str, student_id: str = "default_student"):
+    try:
+        ach = db.get_achievement_by_id(ach_id, student_id)
+        if not ach:
+            return JSONResponse(status_code=404, content={"status": "error", "message": "Achievement not found"})
+        return {"status": "success", "data": ach}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.put("/api/achievements/{ach_id}")
+async def api_update_single_achievement(ach_id: str, payload: AchievementPayload):
+    try:
+        updated = db.update_achievement(ach_id, payload.dict(), payload.student_id or "default_student")
+        if not updated:
+            return JSONResponse(status_code=404, content={"status": "error", "message": "Achievement not found or unauthorized"})
+        return {"status": "success", "data": updated}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.delete("/api/achievements/{ach_id}")
+async def api_delete_single_achievement(ach_id: str, student_id: str = "default_student"):
+    try:
+        deleted = db.delete_achievement(ach_id, student_id)
+        if not deleted:
+            return JSONResponse(status_code=404, content={"status": "error", "message": "Achievement not found or unauthorized"})
+        return {"status": "success", "message": "Achievement deleted successfully"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+
+
+
+# ============================================================
+# CAREER ROLE SKILL REQUIREMENT COMPARISON ENDPOINTS
+# ============================================================
+
+from services.career_comparison_service import (
+    CAREER_ROLES_CATALOG,
+    calculate_single_role_comparison,
+    compare_multiple_roles,
+    get_ranked_career_matches,
+    generate_career_action_plan
+)
+
+class RoleComparisonRequest(BaseModel):
+    role_ids: Optional[List[str]] = ["data_scientist", "full_stack_dev", "ai_engineer"]
+    skills: Optional[List[Dict[str, Any]]] = None
+    student_id: Optional[str] = "default_student"
+
+class RoleActionPlanRequest(BaseModel):
+    role_id: str
+    skills: Optional[List[Dict[str, Any]]] = None
+    student_id: Optional[str] = "default_student"
+    weekly_hours: Optional[int] = 10
+
+@app.get("/api/career-roles")
+async def api_get_career_roles():
+    """Returns summary metadata for all 15 industry career roles."""
+    try:
+        roles_list = []
+        for r_id, r in CAREER_ROLES_CATALOG.items():
+            mandatory = [s["name"] for s in r["skills"] if s.get("is_mandatory")]
+            roles_list.append({
+                "id": r["id"],
+                "title": r["title"],
+                "category": r["category"],
+                "description": r["description"],
+                "industry": r.get("industry", "Technology"),
+                "average_salary": r.get("average_salary", ""),
+                "market_demand": r.get("market_demand", "High"),
+                "icon": r.get("icon", "Briefcase"),
+                "total_skills_count": len(r["skills"]),
+                "mandatory_skills": mandatory
+            })
+        return {"status": "success", "count": len(roles_list), "data": roles_list}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.get("/api/career-roles/rankings")
+async def api_get_career_rankings(student_id: str = "default_student"):
+    """Ranks all 15 career roles by match percentage for the student's profile."""
+    try:
+        student_skills = db.get_student_skills(student_id)
+        rankings = get_ranked_career_matches(student_skills)
+        return {"status": "success", "student_id": student_id, "count": len(rankings), "data": rankings}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.get("/api/career-roles/{role_id}")
+async def api_get_single_career_role(role_id: str):
+    """Returns granular skill requirements for a single career role."""
+    try:
+        role = CAREER_ROLES_CATALOG.get(role_id)
+        if not role:
+            return JSONResponse(status_code=404, content={"status": "error", "message": f"Career role '{role_id}' not found"})
+        return {"status": "success", "data": role}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.post("/api/career-roles/compare")
+async def api_compare_career_roles(payload: RoleComparisonRequest):
+    """
+    Compares real student skills against selected career roles.
+    Returns calculated match percentages, gap breakdown, matrix, and chart series.
+    """
+    try:
+        student_id = payload.student_id or "default_student"
+        
+        # Pull actual skills from database if not explicitly passed in payload
+        if payload.skills is not None:
+            student_skills = payload.skills
+        else:
+            student_skills = db.get_student_skills(student_id)
+
+        roles_to_compare = payload.role_ids or ["data_scientist", "full_stack_dev", "ai_engineer"]
+        
+        result = compare_multiple_roles(roles_to_compare, student_skills)
+        
+        # Save comparison evaluation to database for historical tracking
+        for comp in result.get("roles", []):
+            try:
+                db.save_student_role_comparison(
+                    student_id=student_id,
+                    role_id=comp["role_id"],
+                    match_score=comp["match_percentage"],
+                    comparison_data={
+                        "skills_met": comp["skills_meeting_requirements"],
+                        "gaps_count": len(comp["prioritized_gaps"])
+                    }
+                )
+            except Exception as db_err:
+                print(f"Warning: could not save student comparison: {db_err}")
+
+        return result
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
+@app.post("/api/career-roles/action-plan")
+async def api_generate_career_action_plan(payload: RoleActionPlanRequest):
+    """Generates customized career improvement roadmap for a target career role."""
+    try:
+        student_id = payload.student_id or "default_student"
+        if payload.skills is not None:
+            student_skills = payload.skills
+        else:
+            student_skills = db.get_student_skills(student_id)
+
+        plan = generate_career_action_plan(
+            role_id=payload.role_id,
+            student_skills=student_skills,
+            weekly_hours=payload.weekly_hours or 10
+        )
+        return {"status": "success", "data": plan}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+
 
 if __name__ == "__main__":
 
