@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 from services.igot_service import recommend_igot_courses
 
 import os
+import time
+from datetime import datetime
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Any, List, Dict, Optional
@@ -1485,7 +1487,7 @@ async def login_user_endpoint(data: dict):
                         "email": email,
                         "full_name": user_record.get("full_name", email.split("@")[0])
                     },
-                    "token": f"token_{email}_{int(datetime.now().timestamp())}"
+                    "token": f"token_{email}_{int(time.time())}"
                 }
             else:
                 return {
@@ -1500,7 +1502,7 @@ async def login_user_endpoint(data: dict):
                 "email": email,
                 "full_name": email.split("@")[0].replace(".", " ").replace("_", " ").title()
             },
-            "token": f"token_{email}_{int(datetime.now().timestamp())}"
+            "token": f"token_{email}_{int(time.time())}"
         }
 
     except Exception as e:

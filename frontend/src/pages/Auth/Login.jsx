@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import GoogleLogin from "../../components/GoogleLogin";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { setAuthSession, isAuthenticated } from "../../services/authStore";
@@ -43,7 +42,7 @@ export default function Login() {
   };
 
   const location = useLocation();
-  const targetPath = location.state?.from?.pathname || "/dashboard";
+  const targetPath = typeof location.state?.from === "string" ? location.state.from : location.state?.from?.pathname || "/dashboard";
 
   useEffect(() => {
     if (isAuthenticated()) {
@@ -67,19 +66,27 @@ export default function Login() {
       let token = "session_" + Date.now();
 
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+
         const res = await fetch(`${API_BASE_URL}/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: cleanEmail, password: form.password }),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
+
         const data = await res.json();
         if (data && data.success) {
           if (data.user?.full_name) userName = data.user.full_name;
           if (data.token) token = data.token;
         } else if (data && data.success === false) {
-          toast.error(data.message || "Invalid credentials.");
-          setLoading(false);
-          return;
+          if (data.message && data.message.toLowerCase().includes("incorrect password")) {
+            toast.error(data.message);
+            setLoading(false);
+            return;
+          }
         }
       } catch (backendErr) {
         console.warn("Backend login connection fallback:", backendErr);
@@ -100,7 +107,7 @@ export default function Login() {
       toast.success(`Welcome back, ${userName || "Student"}!`);
       setLoading(false);
 
-      navigate(targetPath, { replace: true });
+      window.location.href = targetPath || "/dashboard";
     } catch (err) {
       setLoading(false);
       toast.error("Login failed. Please try again.");
@@ -624,27 +631,7 @@ export default function Login() {
 
                   </form>
 
-                  {/* =================================================
-                      GOOGLE SIGN-IN
-                  ================================================== */}
 
-                  <div className="flex items-center gap-4 my-6">
-
-                    <div className="h-px flex-1 bg-[#172033]/10" />
-
-                    <span className="text-xs font-semibold text-[#172033]/40">
-                      OR
-                    </span>
-
-                    <div className="h-px flex-1 bg-[#172033]/10" />
-
-                  </div>
-
-                  <div className="w-full">
-
-                    <GoogleLogin mode="signin" />
-
-                  </div>
 
                   {/* =================================================
                       DIVIDER

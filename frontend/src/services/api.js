@@ -20,8 +20,37 @@ python -m uvicorn main:app --reload
 // API BASE URL
 // =======================================================
 
-const rawApiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
-export const API_BASE_URL = rawApiUrl.startsWith("http://") || rawApiUrl.startsWith("https://") ? rawApiUrl : `https://${rawApiUrl}`;
+export function normalizeApiUrl(raw) {
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    const host = window.location.hostname;
+    if (host.includes("onrender.com") && (!raw || raw.includes("localhost") || raw.includes("127.0.0.1"))) {
+      return "https://aspirants-backend.onrender.com";
+    }
+  }
+
+  if (!raw) return "http://127.0.0.1:8000";
+  raw = String(raw).trim();
+
+  let proto = "https://";
+  if (raw.startsWith("http://")) {
+    proto = "http://";
+    raw = raw.slice(7);
+  } else if (raw.startsWith("https://")) {
+    proto = "https://";
+    raw = raw.slice(8);
+  }
+
+  const hostPart = raw.split("/")[0].split(":")[0];
+  if (!hostPart.includes(".") && hostPart !== "localhost" && hostPart !== "127.0.0.1") {
+    raw = raw.replace(hostPart, `${hostPart}.onrender.com`);
+  }
+
+  return `${proto}${raw}`.replace(/\/+$/, "");
+}
+
+export const API_BASE_URL = normalizeApiUrl(
+  import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000"
+);
 
 
 // =======================================================
