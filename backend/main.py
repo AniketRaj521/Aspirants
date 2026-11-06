@@ -1304,6 +1304,59 @@ async def voice_tutor(
 
 
 # ============================================================
+# VOICE TRANSCRIBE (FALLBACK FOR SPEECH RECOGNITION ERRORS)
+# ============================================================
+
+@app.post("/api/tutor/transcribe")
+@app.post("/transcribe")
+async def transcribe_audio_endpoint(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        if not contents or len(contents) < 50:
+            return {
+                "success": False,
+                "message": "No audio data received."
+            }
+
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        if not groq_api_key:
+            return {
+                "success": False,
+                "message": "GROQ_API_KEY is not configured."
+            }
+
+        from groq import Groq
+        client = Groq(api_key=groq_api_key)
+
+        filename = file.filename or "recording.webm"
+        if not any(filename.lower().endswith(ext) for ext in [".webm", ".wav", ".mp3", ".ogg", ".m4a", ".mp4"]):
+            filename = "recording.webm"
+
+        transcription = client.audio.transcriptions.create(
+            file=(filename, contents),
+            model="whisper-large-v3-turbo",
+            response_format="json",
+            temperature=0.0
+        )
+
+        transcribed_text = (getattr(transcription, "text", "") or "").strip()
+
+        return {
+            "success": True,
+            "text": transcribed_text
+        }
+
+    except Exception as e:
+        print("========== TRANSCRIBE ERROR ==========")
+        print(str(e))
+        print("======================================")
+        return {
+            "success": False,
+            "message": f"Speech transcription error: {str(e)}"
+        }
+
+
+# ============================================================
 # PERSONALIZED LEARNING PATH FROM PDF
 # ============================================================
 

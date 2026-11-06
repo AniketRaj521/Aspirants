@@ -34,7 +34,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 
-import { extractPDF, askTutor } from "../../services/api";
+import { extractPDF, askTutor, transcribeAudio } from "../../services/api";
 
 
 // ============================================================
@@ -138,6 +138,10 @@ export default function Tutor() {
     useState([]);
 
   const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const useWhisperRef = useRef(false);
+  const [transcribing, setTranscribing] = useState(false);
 
   const finalTranscriptRef = useRef("");
 
@@ -330,145 +334,213 @@ export default function Tutor() {
 
 
   // ==========================================================
-  // SPEECH RECOGNITION SETUP
+  // SPEECH RECOGNITION & WHISPER SETUP
   // ==========================================================
+
+  const startWhisperRecording = async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        toast.error("Microphone access is not supported by your browser.");
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+
+      let mimeType = "audio/webm";
+      if (typeof MediaRecorder !== "undefined") {
+        if (!MediaRecorder.isTypeSupported("audio/webm")) {
+          if (MediaRecorder.isTypeSupported("audio/mp4")) {
+            mimeType = "audio/mp4";
+          } else {
+            mimeType = "";
+          }
+        }
+      }
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        setIsListening(false);
+        stream.getTracks().forEach((track) => track.stop());
+
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: mimeType || "audio/webm",
+        });
+
+        if (audioBlob.size < 400) {
+          toast.error("No speech detected. Please speak clearly into your mic.");
+          return;
+        }
+
+        setTranscribing(true);
+        const transToast = toast.loading("Transcribing your question with AI Whisper...");
+
+        try {
+          const res = await transcribeAudio(audioBlob);
+          toast.dismiss(transToast);
+
+          if (res && res.success && res.text && res.text.trim()) {
+            const cleanText = res.text.trim();
+            setQuestion(cleanText);
+            toast.success(`Heard: "${cleanText}"`);
+
+            if (pdfTextRef.current.trim() && !askingRef.current) {
+              voiceRequestRef.current = true;
+              setTimeout(() => {
+                submitQuestionRef.current?.(cleanText);
+              }, 200);
+            }
+          } else {
+            toast.error(res?.message || "Could not understand voice. Please try again or type.");
+          }
+        } catch (err) {
+          toast.dismiss(transToast);
+          console.error("Transcription error:", err);
+          toast.error("Transcription failed. Please type your question.");
+        } finally {
+          setTranscribing(false);
+        }
+      };
+
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsListening(true);
+      toast.success("Listening (AI Whisper)... Click microphone again when done.");
+    } catch (err) {
+      console.error("Microphone error:", err);
+      setIsListening(false);
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        toast.error("Microphone permission was denied. Please allow microphone access in your browser settings.");
+      } else {
+        toast.error("Microphone error: " + err.message);
+      }
+    }
+  };
+
+  const stopWhisperRecording = () => {
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+    } catch (e) {
+      console.warn("Stop recorder error:", e);
+    }
+  };
 
   useEffect(() => {
     const SpeechRecognition =
       window.SpeechRecognition ||
       window.webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
+    const hasMedia = typeof window !== "undefined" && !!window.navigator?.mediaDevices?.getUserMedia;
+
+    if (!SpeechRecognition && !hasMedia) {
       setVoiceSupported(false);
       return;
     }
 
-    const recognition =
-      new SpeechRecognition();
+    if (!SpeechRecognition) {
+      useWhisperRef.current = true;
+      setVoiceSupported(true);
+      return;
+    }
 
-    recognition.lang = "en-IN";
+    setVoiceSupported(true);
 
-    recognition.continuous = false;
+    let recognition = null;
+    try {
+      recognition = new SpeechRecognition();
+      recognition.lang = navigator.language || "en-US";
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
 
-    recognition.interimResults = true;
+      recognition.onstart = () => {
+        setIsListening(true);
+        setInterimTranscript("");
+        finalTranscriptRef.current = "";
+        toast.success("Listening... Speak your question.");
+      };
 
-    recognition.maxAlternatives = 1;
+      recognition.onresult = (event) => {
+        let finalText = "";
+        let interimText = "";
 
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      setInterimTranscript("");
-      finalTranscriptRef.current = "";
-
-      toast.success(
-        "Listening... Speak your question."
-      );
-    };
-
-
-    recognition.onresult = (event) => {
-      let finalText = "";
-      let interimText = "";
-
-      for (
-        let i = event.resultIndex;
-        i < event.results.length;
-        i++
-      ) {
-        const transcript =
-          event.results[i][0].transcript;
-
-        if (event.results[i].isFinal) {
-          finalText += transcript + " ";
-        } else {
-          interimText += transcript;
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalText += transcript + " ";
+          } else {
+            interimText += transcript;
+          }
         }
-      }
 
-      if (finalText) {
-        finalTranscriptRef.current +=
-          finalText;
-      }
+        if (finalText) {
+          finalTranscriptRef.current += finalText;
+        }
 
-      setInterimTranscript(
-        interimText
-      );
+        setInterimTranscript(interimText);
+        setQuestion(`${finalTranscriptRef.current} ${interimText}`.trim());
+      };
 
-      setQuestion(
-        `${finalTranscriptRef.current} ${interimText}`.trim()
-      );
-    };
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsListening(false);
 
+        if (event.error === "network") {
+          useWhisperRef.current = true;
+          toast("Google speech network unavailable. Switched to AI Whisper voice recorder.", {
+            icon: "🎙️",
+          });
+          startWhisperRecording();
+          return;
+        }
 
-    recognition.onerror = (event) => {
-      console.error(
-        "Speech recognition error:",
-        event.error
-      );
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          toast.error("Microphone permission was denied. Please allow microphone access.");
+        } else if (event.error === "no-speech") {
+          toast.error("No speech detected. Please speak closer to your microphone.");
+        } else {
+          useWhisperRef.current = true;
+          toast.error(`Voice recognition notice (${event.error}). Switched to AI Whisper.`);
+        }
+      };
 
-      setIsListening(false);
+      recognition.onend = () => {
+        setIsListening(false);
+        setInterimTranscript("");
 
-      if (
-        event.error ===
-        "not-allowed"
-      ) {
-        toast.error(
-          "Microphone permission was denied. Please allow microphone access."
-        );
-      } else if (
-        event.error ===
-        "no-speech"
-      ) {
-        toast.error(
-          "No speech detected. Please try again."
-        );
-      } else {
-        toast.error(
-          "Voice recognition failed. Please try again."
-        );
-      }
-    };
+        const spokenQuestion = finalTranscriptRef.current.trim();
+        if (spokenQuestion && pdfTextRef.current.trim() && !askingRef.current) {
+          voiceRequestRef.current = true;
+          setTimeout(() => {
+            submitQuestionRef.current?.(spokenQuestion);
+          }, 100);
+        }
+      };
 
-
-    recognition.onend = () => {
-      setIsListening(false);
-      setInterimTranscript("");
-
-      const spokenQuestion =
-        finalTranscriptRef.current.trim();
-
-      if (
-        spokenQuestion &&
-        pdfTextRef.current.trim() &&
-        !askingRef.current
-      ) {
-        voiceRequestRef.current =
-          true;
-
-        // Automatically send voice question
-        setTimeout(() => {
-          submitQuestionRef.current?.(
-            spokenQuestion
-          );
-        }, 100);
-      }
-    };
-
-    recognitionRef.current =
-      recognition;
+      recognitionRef.current = recognition;
+    } catch (e) {
+      console.warn("SpeechRecognition init error, using Whisper fallback:", e);
+      useWhisperRef.current = true;
+    }
 
     return () => {
       try {
-        recognition.stop();
-      } catch {
-        // Ignore stop errors
-      }
-
-      recognitionRef.current =
-        null;
+        if (recognition) recognition.stop();
+      } catch {}
+      recognitionRef.current = null;
     };
   }, []);
-
 
   // ==========================================================
   // START / STOP LISTENING
@@ -476,40 +548,37 @@ export default function Tutor() {
 
   const toggleListening = () => {
     if (!voiceSupported) {
-      toast.error(
-        "Voice recognition is not supported. Please use Google Chrome."
-      );
+      toast.error("Voice input is not supported on this browser.");
       return;
     }
 
     if (!pdfText.trim()) {
-      toast.error(
-        "Please upload a PDF before using Voice Tutor."
-      );
+      toast.error("Please upload a PDF before using Voice Tutor.");
       return;
     }
 
-    if (asking) {
-      toast.error(
-        "Please wait for AI Tutor to finish."
-      );
+    if (asking || transcribing) {
+      toast.error("Please wait for AI Tutor to finish.");
       return;
     }
 
-    if (!recognitionRef.current) {
-      toast.error(
-        "Voice recognition is unavailable."
-      );
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      stopWhisperRecording();
       return;
     }
 
     if (isListening) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        // Ignore
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
       }
+      setIsListening(false);
+      return;
+    }
 
+    if (useWhisperRef.current || !recognitionRef.current) {
+      startWhisperRecording();
       return;
     }
 
@@ -520,7 +589,9 @@ export default function Tutor() {
     try {
       recognitionRef.current.start();
     } catch (error) {
-      console.error(error);
+      console.warn("Web Speech start failed, switching to Whisper:", error);
+      useWhisperRef.current = true;
+      startWhisperRecording();
     }
   };
 
@@ -1586,7 +1657,12 @@ export default function Tutor() {
                       } disabled:opacity-40 disabled:cursor-not-allowed`}
                     >
 
-                      {isListening ? (
+                      {transcribing ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Transcribing...
+                        </>
+                      ) : isListening ? (
                         <>
                           <Square className="w-4 h-4 fill-current" />
                           Stop & Send
@@ -2174,7 +2250,9 @@ export default function Tutor() {
                   } disabled:opacity-40`}
                 >
 
-                  {isListening ? (
+                  {transcribing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : isListening ? (
                     <MicOff className="w-5 h-5" />
                   ) : (
                     <Mic className="w-5 h-5" />

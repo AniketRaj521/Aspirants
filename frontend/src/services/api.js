@@ -678,6 +678,25 @@ export const askTutor = async ({
   }
 
 };
+export const transcribeAudio = async (audioBlob) => {
+  try {
+    const formData = new FormData();
+    formData.append("file", audioBlob, "recording.webm");
+
+    const response = await api.post("/api/tutor/transcribe", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      timeout: 30000,
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("Transcribe API Error:", error);
+    handleApiError(error, "Speech transcription failed.");
+  }
+};
+
 export const generatePPT = async ({
   file,
   style = "Visual Learning",
